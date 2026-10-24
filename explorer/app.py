@@ -21,9 +21,11 @@ ARTIFACTS = os.environ.get("EXPLORER_ARTIFACTS", str(ROOT / "artifacts"))
 # Hosted version: results-only bundle from `python -m explorer.public_bundle` (no embedding vectors).
 PUBLIC = os.environ.get("EXPLORER_PUBLIC", str(ROOT / "public_artifacts"))
 PUBLIC_FILES = ["candidates.csv", "coords.csv", "scores.csv", "context.csv", "meta.json"]
-HOSTED_ABOUT = ("\n- **This hosted version** runs on a results-only bundle (`public_artifacts/`): precomputed scores "
-                "for the 15 predefined targets, PCA coordinates, candidate metadata and top-10 context words. It "
-                "contains no embedding vectors, so free-text queries need the full local version.")
+HOSTED_ABOUT = ("\n- **This hosted version** runs on a results-only bundle (`public_artifacts/`): precomputed, "
+                "limited-scope outputs derived from the Mat2vec embeddings (scores for the 15 predefined targets, PCA "
+                "coordinates, candidate metadata and top-10 context words). It is not the embedding vectors, so "
+                "free-text queries need the full local version. The licensing of the Mat2vec weights, and of outputs "
+                "derived from them, is unresolved.")
 HOSTED_NOTE = ("Free-text queries are unavailable in the hosted version: they need the pretrained Mat2vec embeddings, "
                "which are not published. Run the full version locally to query any word.")
 CAVEAT = "Literature association before 2018, not feasibility."

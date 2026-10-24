@@ -14,7 +14,7 @@ A verified literature set of 92 material–method pairs supports this as an expl
 - **Streamlit** and **Plotly**: interactive dashboard with 2D/3D charts.
 - **gensim** loads the pretrained Mat2vec Word2Vec model (build step only); **pymatgen** handles formula normalization.
 - **Data APIs**: MC2D via OPTIMADE; OpenAlex and Crossref for literature curation.
-- **Testing**: pytest and Streamlit AppTest (64 tests).
+- **Testing**: pytest and Streamlit AppTest (68 tests).
 
 ## Relation to Mat2vec
 
@@ -124,7 +124,7 @@ streamlit run explorer/app.py            # open http://localhost:8501
 A fresh clone runs on `public_artifacts/`, a 1.7 MB results-only bundle of plain CSV files:
 - **Works:** Explore (rankings, side-by-side comparison, 2D/3D map, context words) for the **15 predefined targets**, the full Evaluation page, the Literature page and About.
 - **Unavailable:** free-text queries for arbitrary words. These need the embedding vectors, which are not published.
-- **Contents:** precomputed scores, PCA coordinates, candidate metadata and top-10 context words, generated from the local artifacts with `python -m explorer.public_bundle`. It holds **no embedding vectors**: 15 target directions cannot reconstruct the 200-dimensional embeddings, and a test checks this.
+- **Contents:** precomputed, limited-scope outputs derived from Mat2vec: scores against the 15 predefined targets, PCA coordinates, candidate metadata and top-10 context words, generated from the local artifacts with `python -m explorer.public_bundle`. It is **not the pretrained embedding vectors** and contains no model files (a test checks this). It reveals each material's relation to only 15 target words, a small slice of the 200-dimensional embedding space. See [`public_artifacts/README.md`](public_artifacts/README.md) for attribution.
 
 If `public_artifacts/` is also missing, the app falls back to **limited mode**: the About page and the literature dataset, with a notice naming the features that need the model.
 
@@ -157,7 +157,7 @@ If `public_artifacts/` is also missing, the app falls back to **limited mode**: 
 ### Tests
 
 ```bash
-pytest                                   # 64 tests; without artifacts/, the 20 full-mode tests are skipped with a reason
+pytest                                   # 68 tests; without artifacts/, the 20 full-mode tests are skipped with a reason
 ```
 
 ### Troubleshooting
@@ -168,6 +168,16 @@ pytest                                   # 64 tests; without artifacts/, the 20 
 | "Pretrained Mat2vec model not found in …" | Download the three files and set `MAT2VEC_MODEL_DIR`. |
 | "The build step needs gensim and pymatgen" | `pip install -r requirements-build.txt` |
 | `ModuleNotFoundError: streamlit` / `plotly` | `pip install -r requirements.txt` |
+
+## Deploying the hosted version (Streamlit Community Cloud)
+
+Choose these in the deploy screen; the Python version and entrypoint are not read from the repository:
+- **Repository / branch:** `xua1ex/mat2vec-2d-explorer`, `main`
+- **Main file path:** `explorer/app.py`
+- **Advanced settings → Python version: Python 3.11** (the platform default is 3.12; the app is tested on 3.11)
+- **Dependencies:** the root `requirements.txt` (the five runtime packages) is the only dependency file Community Cloud finds. `requirements-build.txt` is not installed, so neither gensim nor the model is needed on the server.
+
+With no `artifacts/` on the server, the app runs on `public_artifacts/`.
 
 ## Architecture
 
@@ -184,7 +194,7 @@ data/
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
                       (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
-tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (64 tests)
+tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (68 tests)
 docs/             design spec, implementation plan, screenshots
 ```
 
@@ -206,9 +216,10 @@ How the pieces fit together:
     Tshitoyan *et al.*, downloaded separately from the authors' storage, and no licence for them has been confirmed.
     They and every vector artifact derived from them (`artifacts/`, `*.npy`, `*.npz`) are git-ignored and are not
     distributed with this repository. Check the terms with the Mat2vec authors before redistributing or hosting them.
-  - `public_artifacts/` publishes **model outputs only**: similarity scores, PCA coordinates and context-word results
-    computed with those embeddings, like the figures in a paper. It contains no embedding vectors or weights. The
-    licensing status of the embeddings themselves is still being clarified with the original authors.
+  - `public_artifacts/` contains **precomputed, limited-scope outputs derived from Mat2vec** (similarity scores, PCA
+    coordinates and context-word results computed with the embeddings), not the embedding vectors or weights. Because
+    the licensing of the weights is unresolved, so is the licensing of these derived outputs; this is being clarified
+    with the original authors before the bundle is published.
 
 ## How to cite
 

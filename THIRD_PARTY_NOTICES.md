@@ -30,6 +30,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+### Derived results (`public_artifacts/`)
+
+The results-only bundle for the hosted version contains precomputed, limited-scope outputs derived from the
+pretrained Mat2vec embeddings: similarity scores for 15 predefined targets, PCA coordinates and top-10 context words.
+It does not contain the embedding vectors or model files. Because the redistribution terms of the weights are
+unresolved, the licensing status of these derived outputs is unresolved as well. See `public_artifacts/README.md`.
+
 ## MC2D (Materials Cloud two-dimensional crystals database)
 
 Band gaps and formulas are retrieved at build time from the MC2D OPTIMADE API (https://optimade.materialscloud.org/main/mc2d),

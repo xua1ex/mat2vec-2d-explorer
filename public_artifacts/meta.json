@@ -56,7 +56,9 @@
       "pulsed_laser_deposition",
       "exfoliation"
     ],
-    "contents": "precomputed scores, PCA coordinates, candidate metadata and top-10 context words; no embedding vectors",
+    "contents": "precomputed, limited-scope model-derived outputs (scores, PCA coordinates, candidate metadata, top-10 context words); not the pretrained embedding vectors",
+    "derived_from": "Tshitoyan, V. et al. Unsupervised word embeddings capture latent knowledge from materials science literature. Nature 571, 95-98 (2019). doi:10.1038/s41586-019-1335-8; https://github.com/materialsintelligence/mat2vec",
+    "licence_note": "Derived from the pretrained Mat2vec embeddings, whose redistribution terms are unresolved; this bundle's publication status depends on that answer.",
     "built_from_artifacts": "2026-10-24T09:21:22+00:00"
   }
 }

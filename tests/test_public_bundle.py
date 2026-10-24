@@ -8,7 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT / "public_artifacts"
-EXPECTED = {"candidates.csv", "coords.csv", "scores.csv", "context.csv", "meta.json"}
+EXPECTED = {"candidates.csv", "coords.csv", "scores.csv", "context.csv", "meta.json", "README.md"}
 CURATED = 15
 
 
@@ -20,7 +20,7 @@ def test_bundle_has_only_expected_small_files():
 
 def test_bundle_contains_no_embedding_vectors():
     """No vector arrays, no wide numeric blocks, no model-array names anywhere in the bundle."""
-    for name in EXPECTED - {"meta.json"}:
+    for name in EXPECTED - {"meta.json", "README.md"}:
         df = pd.read_csv(BUNDLE / name)
         numeric = df.select_dtypes("number").shape[1]
         assert numeric <= CURATED + 5, (name, numeric)          # a 200-d vector block would be ~200 columns
@@ -46,7 +46,8 @@ def test_bundle_covers_all_curated_targets_for_every_candidate():
 def test_bundle_is_up_to_date_and_matches_full_mode(tmp_path):
     from explorer import public_bundle, ranking as r
     public_bundle.export(ROOT / "artifacts", tmp_path)
-    for name in EXPECTED - {"meta.json"}:
+    assert (tmp_path / "README.md").read_text() == (BUNDLE / "README.md").read_text()
+    for name in EXPECTED - {"meta.json", "README.md"}:
         pd.testing.assert_frame_equal(pd.read_csv(tmp_path / name), pd.read_csv(BUNDLE / name), check_exact=True)
     a = np.load(ROOT / "artifacts" / "vectors.npz")
     idx = {t: i for i, t in enumerate(a["vocab_tokens"])}
@@ -55,3 +56,21 @@ def test_bundle_is_up_to_date_and_matches_full_mode(tmp_path):
         block = scores[scores.target == target]
         full = r.score(a["cand_out"], a["vocab_in"][idx[target]])
         assert np.array_equal(block.out_in.to_numpy(np.float32), full)   # identical, so identical rankings
+
+
+def test_bundle_is_attributed_to_mat2vec_with_licensing_note():
+    readme = (BUNDLE / "README.md").read_text()
+    for phrase in ("Mat2vec", "Tshitoyan", "10.1038/s41586-019-1335-8", "github.com/materialsintelligence/mat2vec",
+                   "MC2D", "CC BY 4.0", "unresolved", "not the pretrained embedding vectors"):
+        assert phrase in readme, phrase
+    bundle = json.loads((BUNDLE / "meta.json").read_text())["bundle"]
+    assert "10.1038/s41586-019-1335-8" in bundle["derived_from"] and "unresolved" in bundle["licence_note"]
+
+
+def test_bundle_has_no_secrets_paths_or_personal_data():
+    import re
+    pattern = re.compile("/" + "Users/|/home/|/private/|" + r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[a-z]{2,}|ghp_|github_pat_|"
+                         r"BEGIN [A-Z ]*PRIVATE KEY|api[_-]?key|password|secret", re.I)
+    for f in BUNDLE.iterdir():
+        hits = pattern.findall(f.read_text(errors="replace"))
+        assert not hits, (f.name, hits[:3])

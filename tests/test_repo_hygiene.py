@@ -40,3 +40,25 @@ def test_license_holder_and_no_local_paths():
     assert "Copyright (c) 2026 Alex Xu" in open("LICENSE").read()
     hits = subprocess.run(["git", "grep", "-n", "-I", "-E", r"/Users/|/opt/anaconda", "--", ".", ":!tests/test_repo_hygiene.py"], capture_output=True, text=True).stdout
     assert hits == "", hits
+
+
+def test_no_categorical_reconstruction_claims():
+    hits = subprocess.run(["git", "grep", "-n", "-I", "-i", "-E",
+                           r"cannot reconstruct|can.t reconstruct|impossible to reconstruct|cannot be reconstructed",
+                           "--", ".", ":!tests/test_repo_hygiene.py"], capture_output=True, text=True).stdout
+    assert hits == "", hits
+
+
+def test_streamlit_cloud_uses_requirements_txt_with_runtime_deps_only():
+    """Community Cloud takes the first of uv.lock, Pipfile, environment.yml, requirements.txt, pyproject.toml,
+    looking in the entrypoint folder (explorer/) and then the repo root."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    for folder in (root / "explorer", root):
+        for name in ("uv.lock", "Pipfile", "environment.yml", "pyproject.toml"):
+            assert not (folder / name).exists(), folder / name
+    assert not (root / "explorer" / "requirements.txt").exists()
+    deps = {line.split("==")[0] for line in (root / "requirements.txt").read_text().split() if line}
+    assert deps == {"streamlit", "pandas", "numpy", "plotly", "pyarrow"}
+    readme = (root / "README.md").read_text()
+    assert "explorer/app.py" in readme and "Python 3.11" in readme and "Advanced settings" in readme
