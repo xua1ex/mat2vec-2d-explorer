@@ -1,0 +1,57 @@
+"""The results-only public bundle: precomputed outputs for the hosted app, never embedding vectors."""
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+BUNDLE = ROOT / "public_artifacts"
+EXPECTED = {"candidates.csv", "coords.csv", "scores.csv", "context.csv", "meta.json"}
+CURATED = 15
+
+
+def test_bundle_has_only_expected_small_files():
+    files = {p.name for p in BUNDLE.iterdir()}
+    assert files == EXPECTED
+    assert sum(p.stat().st_size for p in BUNDLE.iterdir()) < 3_000_000
+
+
+def test_bundle_contains_no_embedding_vectors():
+    """No vector arrays, no wide numeric blocks, no model-array names anywhere in the bundle."""
+    for name in EXPECTED - {"meta.json"}:
+        df = pd.read_csv(BUNDLE / name)
+        numeric = df.select_dtypes("number").shape[1]
+        assert numeric <= CURATED + 5, (name, numeric)          # a 200-d vector block would be ~200 columns
+        assert not any(k in c for c in df.columns for k in ("vocab_in", "cand_in", "cand_out", "vector")), name
+    meta = json.loads((BUNDLE / "meta.json").read_text())
+    assert not {"vocab_in", "cand_in", "cand_out"} & set(json.dumps(meta).split('"'))
+
+
+def test_bundle_covers_all_curated_targets_for_every_candidate():
+    scores = pd.read_csv(BUNDLE / "scores.csv")
+    cand = pd.read_csv(BUNDLE / "candidates.csv")
+    meta = json.loads((BUNDLE / "meta.json").read_text())
+    assert len(meta["bundle"]["targets"]) == CURATED and set(scores.target) == set(meta["bundle"]["targets"])
+    assert len(scores) == len(cand) * CURATED and set(scores.columns) == {"token", "target", "out_in", "in_in"}
+    for _, block in scores.groupby("target"):
+        assert list(block.token) == list(cand.token)            # one score per candidate, in candidate order
+    ctx = pd.read_csv(BUNDLE / "context.csv")
+    assert ctx.groupby("token").size().max() <= 10 and set(ctx.token) <= set(cand.token)
+    assert {f"cos_{t}" for t in meta["bundle"]["targets"]} <= set(ctx.columns)
+
+
+@pytest.mark.artifacts
+def test_bundle_is_up_to_date_and_matches_full_mode(tmp_path):
+    from explorer import public_bundle, ranking as r
+    public_bundle.export(ROOT / "artifacts", tmp_path)
+    for name in EXPECTED - {"meta.json"}:
+        pd.testing.assert_frame_equal(pd.read_csv(tmp_path / name), pd.read_csv(BUNDLE / name), check_exact=True)
+    a = np.load(ROOT / "artifacts" / "vectors.npz")
+    idx = {t: i for i, t in enumerate(a["vocab_tokens"])}
+    scores = pd.read_csv(BUNDLE / "scores.csv")
+    for target in ("chemical_vapor_deposition", "ALD", "thermoelectric"):
+        block = scores[scores.target == target]
+        full = r.score(a["cand_out"], a["vocab_in"][idx[target]])
+        assert np.array_equal(block.out_in.to_numpy(np.float32), full)   # identical, so identical rankings

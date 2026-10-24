@@ -104,11 +104,17 @@ def method_report(cand_in, cand_out, target_in, counts, positive, k=20, min_pos=
     Positive-only recovery metrics become NaN when there are fewer than `min_pos` known positives;
     the popularity-bias Spearman needs no labels and is always reported.
     """
+    return report_from_scores({"out_in": score(cand_out, target_in), "in_in": score(cand_in, target_in)},
+                              counts, positive, k, min_pos)
+
+
+def report_from_scores(mode_scores, counts, positive, k=20, min_pos=10):
+    """method_report on precomputed scores ({"out_in": ..., "in_in": ...}), e.g. from the public bundle."""
     counts = np.asarray(counts, dtype=float)
     positive = np.asarray(positive, dtype=bool)
     n_pos = int(positive.sum())
     enough = n_pos >= min_pos
-    scores = {"out_in": score(cand_out, target_in), "in_in": score(cand_in, target_in), "log_count": np.log(counts)}
+    scores = {**mode_scores, "log_count": np.log(counts)}
     rows = {}
     for mode, s in scores.items():
         rows[mode] = {

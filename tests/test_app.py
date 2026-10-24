@@ -19,6 +19,7 @@ def run():
 
 def test_missing_artifacts_shows_build_command(monkeypatch, tmp_path):
     monkeypatch.setenv("EXPLORER_ARTIFACTS", str(tmp_path))
+    monkeypatch.setenv("EXPLORER_PUBLIC", str(tmp_path / "no_bundle"))
     at = run()
     assert any("python -m explorer.build_data" in w.value for w in at.warning)
     assert not at.error   # limited mode is a supported state, not a failure
@@ -199,6 +200,7 @@ def test_app_finds_artifacts_from_any_working_directory(monkeypatch, tmp_path):
 
 def limited(monkeypatch, tmp_path, **query):
     monkeypatch.setenv("EXPLORER_ARTIFACTS", str(tmp_path))   # empty folder = no model artifacts
+    monkeypatch.setenv("EXPLORER_PUBLIC", str(tmp_path / "no_bundle"))
     at = AppTest.from_file(APP, default_timeout=60)
     for k, v in query.items():
         at.query_params[k] = v
@@ -242,7 +244,60 @@ def test_limited_mode_ignores_full_mode_page_links(monkeypatch, tmp_path):
 def test_limited_mode_warning_names_the_folder_not_its_absolute_path(monkeypatch, tmp_path):
     missing = tmp_path / "artifacts"                       # e.g. /mount/src/<repo>/artifacts on a server
     monkeypatch.setenv("EXPLORER_ARTIFACTS", str(missing))
+    monkeypatch.setenv("EXPLORER_PUBLIC", str(tmp_path / "no_bundle"))
     at = AppTest.from_file(APP, default_timeout=60).run()
     banner = at.warning[0].value
     assert "no model artifacts found in 'artifacts'" in banner
     assert str(tmp_path) not in banner
+
+
+
+# --- hosted version: results-only bundle (public_artifacts/), no embedding vectors ---------------------------
+
+def hosted(monkeypatch, tmp_path, **query):
+    monkeypatch.setenv("EXPLORER_ARTIFACTS", str(tmp_path / "artifacts"))   # full artifacts absent, as on the server
+    monkeypatch.delenv("EXPLORER_PUBLIC", raising=False)                   # use the shipped bundle
+    at = AppTest.from_file(APP, default_timeout=60)
+    for k, v in query.items():
+        at.query_params[k] = v
+    return at.run()
+
+
+def test_hosted_explore_offers_all_15_targets_without_free_text(monkeypatch, tmp_path):
+    at = hosted(monkeypatch, tmp_path)
+    assert not at.exception and not at.error
+    assert at.radio(key="page").options == ["Explore", "Evaluation", "Literature", "About"]
+    assert len(at.selectbox(key="target").options) == 15 and at.selectbox(key="target").value == "chemical_vapor_deposition"
+    assert not at.text_input                                   # no free-text box that could not work
+    assert "Free-text queries are unavailable in the hosted version" in text(at)
+    assert len(at.dataframe) >= 3 and len(at.dataframe[0].value) == len(at.dataframe[1].value)
+    at.selectbox(key="target").set_value("ALD").run()
+    assert not at.exception and "Target: ALD" in text(at)
+
+
+def test_hosted_map_3d_and_context_words(monkeypatch, tmp_path):
+    at = hosted(monkeypatch, tmp_path, view="3D")
+    assert not at.exception and at.radio(key="dims").value == "3D"
+    words = at.dataframe[-1].value
+    assert len(words) == 10 and list(words.columns) == ["Context word", "Co-occurrence with material", "Similarity to target"]
+
+
+def test_hosted_evaluation_literature_and_about(monkeypatch, tmp_path):
+    at = hosted(monkeypatch, tmp_path, page="Evaluation")
+    assert not at.exception and any("Spearman" in m.label for m in at.metric)
+    rec = next(df.value for df in at.dataframe if "Eligible positives (n)" in df.value.columns)
+    assert len(rec) == 15
+    at.radio(key="page").set_value("Literature").run()
+    at.selectbox(key="lit_method").set_value("Molecular beam epitaxy (MBE)").run()
+    assert not at.exception and len(at.dataframe[0].value) == 18
+    at.radio(key="page").set_value("About").run()
+    assert not at.exception and "results-only bundle" in text(at)
+
+
+@pytest.mark.artifacts
+def test_hosted_rankings_equal_full_local_rankings(monkeypatch, tmp_path):
+    full = run()
+    host = hosted(monkeypatch, tmp_path)
+    for i in (0, 1):                                            # co-occurrence and similarity tables
+        pd.testing.assert_frame_equal(full.dataframe[i].value.reset_index(drop=True),
+                                      host.dataframe[i].value.reset_index(drop=True))

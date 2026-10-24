@@ -18,6 +18,14 @@ sys.path.insert(0, str(ROOT))
 from explorer import ranking as r  # noqa: E402
 
 ARTIFACTS = os.environ.get("EXPLORER_ARTIFACTS", str(ROOT / "artifacts"))
+# Hosted version: results-only bundle from `python -m explorer.public_bundle` (no embedding vectors).
+PUBLIC = os.environ.get("EXPLORER_PUBLIC", str(ROOT / "public_artifacts"))
+PUBLIC_FILES = ["candidates.csv", "coords.csv", "scores.csv", "context.csv", "meta.json"]
+HOSTED_ABOUT = ("\n- **This hosted version** runs on a results-only bundle (`public_artifacts/`): precomputed scores "
+                "for the 15 predefined targets, PCA coordinates, candidate metadata and top-10 context words. It "
+                "contains no embedding vectors, so free-text queries need the full local version.")
+HOSTED_NOTE = ("Free-text queries are unavailable in the hosted version: they need the pretrained Mat2vec embeddings, "
+               "which are not published. Run the full version locally to query any word.")
 CAVEAT = "Literature association before 2018, not feasibility."
 DEFAULT_TARGET = "chemical_vapor_deposition"
 MODES = {"out_in": "Co-occurrence score (output·input)", "in_in": "Similarity score (input·input)"}
@@ -32,7 +40,6 @@ METHODS = {
     "Pulsed laser deposition (PLD)": "pulsed_laser_deposition",
 }
 MODE_COLORS = {"Co-occurrence (out·in)": "#4C78A8", "Similarity (in·in)": "#F58518"}
-VECTORS = {"out_in": "cand_out", "in_in": "cand_in"}  # which candidate vectors each mode scores
 RANKINGS = {"out_in": "Co-occurrence (out·in)", "in_in": "Similarity (in·in)", "log_count": "Token-count baseline"}
 LIMITATIONS = """**Read these results with care.**
 - Mat2vec captures relationships in the literature up to 2018, not proven deposition feasibility.
@@ -60,7 +67,41 @@ def load_artifacts(path):
     with open(os.path.join(path, "meta.json")) as f:
         meta = json.load(f)
     vec["vocab_index"] = {t: i for i, t in enumerate(vec["vocab_tokens"])}
-    return {"vec": vec, "cand": cand, "meta": meta, "aligned": aligned}
+    return {"mode": "full", "vec": vec, "cand": cand, "meta": meta, "aligned": aligned, "targets": list(vec["targets"])}
+
+
+@st.cache_resource
+def load_public(path):
+    cand = pd.read_csv(os.path.join(path, "candidates.csv"), keep_default_na=False)
+    coords = pd.read_csv(os.path.join(path, "coords.csv"), keep_default_na=False)
+    scores = pd.read_csv(os.path.join(path, "scores.csv"))
+    meta = json.loads(Path(path, "meta.json").read_text())
+    targets = meta["bundle"]["targets"]
+    blocks = {t: b for t, b in scores.groupby("target", sort=False)}
+    aligned = list(cand.token) == list(coords.token) and all(list(blocks[t].token) == list(cand.token) for t in targets)
+    return {"mode": "public", "cand": cand.merge(coords, on="token"), "meta": meta, "aligned": aligned,
+            "targets": targets, "context": pd.read_csv(os.path.join(path, "context.csv"), keep_default_na=False),
+            "scores": {t: {m: blocks[t][m].to_numpy(np.float32) for m in ("out_in", "in_in")} for t in targets}}
+
+
+def target_scores(data, target):
+    """Both scores for every candidate: computed from the vectors (full) or looked up (results-only bundle)."""
+    if data["mode"] == "public":
+        return data["scores"][target]
+    vec = data["vec"]
+    t_in = vec["vocab_in"][vec["vocab_index"][target]]
+    return {"out_in": r.score(vec["cand_out"], t_in), "in_in": r.score(vec["cand_in"], t_in)}
+
+
+def candidate_context(data, token, target):
+    if data["mode"] == "public":
+        rows = data["context"][data["context"].token == token]
+        return pd.DataFrame({"token": rows.word.to_numpy(), "assoc": rows.assoc.to_numpy(),
+                             "target_cos": rows[f"cos_{target}"].to_numpy()})
+    vec = data["vec"]
+    i = int(np.where(vec["cand_tokens"] == token)[0][0])
+    t_in = vec["vocab_in"][vec["vocab_index"][target]]
+    return r.context_words(vec["cand_out"][i], vec["vocab_in"], list(vec["vocab_tokens"]), t_in)
 
 
 def badges(row):
@@ -89,12 +130,16 @@ def ranking_table(df, mode):
     })
 
 
-def pick_target(vec):
-    targets = list(vec["targets"])
+def pick_target(data):
+    targets = data["targets"]
     chosen = st.sidebar.selectbox(
         "Target property or deposition method", targets, key="target",
         index=targets.index(DEFAULT_TARGET) if DEFAULT_TARGET in targets else 0,
         format_func=lambda t: t.replace("_", " "))
+    if data["mode"] == "public":
+        st.sidebar.caption(HOSTED_NOTE)
+        return chosen
+    vec = data["vec"]
     free = st.sidebar.text_input("…or type any word (e.g. photodetector, MoS2)", key="free")
     if free.strip():
         resolved = r.resolve_target(free, vec["vocab_index"])
@@ -108,7 +153,7 @@ def pick_target(vec):
 
 
 def explore(data, min_count):
-    vec, cand, meta = data["vec"], data["cand"].copy(), data["meta"]
+    cand, meta = data["cand"].copy(), data["meta"]
     cov = meta["coverage"]
 
     st.title("2D Semiconductor Materials Explorer")
@@ -120,14 +165,13 @@ def explore(data, min_count):
                f"formulas are in the Mat2vec vocabulary; the other {cov['dropped_not_in_vocab']} "
                "(mostly complex multi-element compounds) have no embedding and cannot be ranked.")
 
-    target = pick_target(vec)
+    target = pick_target(data)
     gmin, gmax = float(cand.gap_min.min()), float(cand.gap_max.max())
     gap_lo, gap_hi = st.sidebar.slider("Band gap range (eV)", gmin, gmax, (gmin, gmax), key="gap")
 
     # Score all candidates on the full 200-d vectors, then apply ONE filter to both modes.
-    t_in = vec["vocab_in"][vec["vocab_index"][target]]
-    cand["out_in"] = r.score(vec["cand_out"], t_in)
-    cand["in_in"] = r.score(vec["cand_in"], t_in)
+    scored = target_scores(data, target)
+    cand["out_in"], cand["in_in"] = scored["out_in"], scored["in_in"]
     shown = cand[(cand["count"] >= min_count) & (cand.gap_max >= gap_lo) & (cand.gap_min <= gap_hi)].copy()
     st.subheader(f"Target: {target.replace('_', ' ')}")
     st.markdown(f"**{len(shown)} of {len(cand)} candidates shown** "
@@ -159,7 +203,7 @@ def explore(data, min_count):
                "not whether they can actually be grown by a given method.")
 
     pca_view(shown, meta)
-    detail(shown, vec, t_in)
+    detail(shown, data, target)
 
 
 def pca_view(shown, meta):
@@ -189,7 +233,7 @@ def pca_view(shown, meta):
                "all rankings use the original 200-dimensional embeddings, not this map.")
 
 
-def detail(shown, vec, t_in):
+def detail(shown, data, target):
     st.subheader("Why is a material ranked where it is?")
     order = shown.sort_values("rank_out_in")
     token = st.selectbox("Candidate", list(order.token), key="cand",
@@ -203,8 +247,7 @@ def detail(shown, vec, t_in):
     if row.low_count:
         st.warning(f"Low count: this token occurs only {row['count']} times in the training corpus, "
                    "so its embedding is learned from very little text.")
-    i = int(np.where(vec["cand_tokens"] == token)[0][0])
-    words = r.context_words(vec["cand_out"][i], vec["vocab_in"], list(vec["vocab_tokens"]), t_in)
+    words = candidate_context(data, token, target)
     st.markdown("**Words this material most often appears with** (co-occurrence), and how similar each "
                 "word is to the target. Bridge words with high values in both columns explain a high rank.")
     st.dataframe(words.rename(columns={"token": "Context word", "assoc": "Co-occurrence with material",
@@ -221,7 +264,7 @@ def fmt(value, ok, digits=2):
 
 
 def evaluation(data, min_count):
-    vec, cand = data["vec"], data["cand"]
+    cand = data["cand"]
     full = load_known()
     n_pre = int((full.year.astype(int) <= 2018).sum())
     st.title("Evaluation: what the embeddings capture, and where they fail")
@@ -238,10 +281,10 @@ def evaluation(data, min_count):
     label = st.selectbox("Deposition method", list(METHODS), key="eval_method")
 
     # --- Main finding: needs no literature labels at all.
-    targets = {lab: vec["vocab_in"][vec["vocab_index"][tok]] for lab, tok in METHODS.items()}
+    scored = {lab: target_scores(data, tok) for lab, tok in METHODS.items()}
     bias = pd.DataFrame([{"Method": lab, "Ranking": RANKINGS[m],
-                          "Spearman": r.popularity_bias(r.score(vec[VECTORS[m]][idx], t), sub["count"])["spearman"]}
-                         for lab, t in targets.items() for m in ("out_in", "in_in")])
+                          "Spearman": r.popularity_bias(scored[lab][m][idx], sub["count"])["spearman"]}
+                         for lab in scored for m in ("out_in", "in_in")])
     out_pos = int((bias[bias.Ranking == RANKINGS["out_in"]].Spearman > 0).sum())
     in_neg = int((bias[bias.Ranking == RANKINGS["in_in"]].Spearman < 0).sum())
     st.subheader("Main finding: the two scores have opposite popularity biases")
@@ -263,7 +306,7 @@ def evaluation(data, min_count):
                     format_func=lambda k: RANKINGS[k])
     positive, _ = r.match_known(list(known.token[known.method == METHODS[label]]), tokens)
     plot = pd.DataFrame({"Formula": sub.formula_examples, "Token count (log scale)": sub["count"],
-                         "Score": r.score(vec["cand_out" if mode == "out_in" else "cand_in"][idx], targets[label]),
+                         "Score": scored[label][mode][idx],
                          "Literature": np.where(positive, "verified pair", "unlabeled")})
     st.plotly_chart(px.scatter(plot, x="Token count (log scale)", y="Score", color="Literature", log_x=True,
                                hover_name="Formula", height=420,
@@ -288,8 +331,8 @@ def evaluation(data, min_count):
     for lab, token in METHODS.items():
         listed = known[known.method == token]
         pos, _ = r.match_known(list(listed.token), tokens)
-        rep = r.method_report(vec["cand_in"][idx], vec["cand_out"][idx], targets[lab], sub["count"].to_numpy(),
-                              pos, k=TOP, min_pos=MIN_POS)
+        rep = r.report_from_scores({m: scored[lab][m][idx] for m in ("out_in", "in_in")}, sub["count"].to_numpy(),
+                                   pos, k=TOP, min_pos=MIN_POS)
         for mode_, row in rep.iterrows():
             rows.append({"Method": lab, "Ranking": RANKINGS[mode_], "Listed pairs": len(listed),
                          "Eligible positives (n)": int(row.n_positive),
@@ -341,7 +384,7 @@ def literature():
     references_table(shown, with_method=True)
 
 
-def about(meta=None):
+def about(meta=None, hosted=False):
     if meta:
         pc, cov = meta["paper_check"], meta["coverage"]
         check = (f"The build step reproduces the paper's Fig. 2a ranks (Li2CuSb rank {pc['CuLi2Sb']}, Cu3Nb2O8 rank "
@@ -391,7 +434,7 @@ model, associate known 2D semiconductors with properties and thin-film depositio
 - This project's code: MIT. `explorer/formula.py` is adapted from mat2vec (MIT, © 2019 Authors of Tshitoyan
   *et al.*). MC2D data: CC BY 4.0. Full notices: `THIRD_PARTY_NOTICES.md`.
 - The pretrained embeddings are **not** redistributed: their redistribution terms are unverified, so the
-  `artifacts/` built from them stay on your machine. {built}
+  `artifacts/` built from them stay on your machine. {built}{HOSTED_ABOUT if hosted else ""}
 """)
 
 
@@ -411,15 +454,20 @@ def limited_mode():
 
 def main():
     # Checked outside the cache so a build made while the app runs is picked up on the next rerun.
-    if not all(os.path.exists(os.path.join(ARTIFACTS, f)) for f in FILES):
+    # Full local artifacts first (unchanged behaviour), then the results-only bundle, then limited mode.
+    if all(os.path.exists(os.path.join(ARTIFACTS, f)) for f in FILES):
+        data, pages = load_artifacts(ARTIFACTS), ["Explore", "Evaluation", "About"]
+        source, fix = ARTIFACTS, "python -m explorer.build_data"
+    elif all(os.path.exists(os.path.join(PUBLIC, f)) for f in PUBLIC_FILES):
+        data, pages = load_public(PUBLIC), ["Explore", "Evaluation", "Literature", "About"]
+        source, fix = PUBLIC, "python -m explorer.public_bundle"
+    else:
         limited_mode()
         return
-    data = load_artifacts(ARTIFACTS)
     if not data["aligned"]:
-        st.error(f"Artifacts in '{ARTIFACTS}' are out of sync (candidate metadata and vectors are in a different "
-                 "order). Rebuild them:  python -m explorer.build_data")
+        st.error(f"Artifacts in '{source}' are out of sync (candidate metadata and scores are in a different "
+                 f"order). Rebuild them:  {fix}")
         st.stop()
-    pages = ["Explore", "Evaluation", "About"]
     requested = st.query_params.get("page")  # ?page=Evaluation gives a shareable link
     page = st.sidebar.radio("Page", pages, key="page", index=pages.index(requested) if requested in pages else 0)
     # One filter for every page and both ranking modes.
@@ -433,8 +481,10 @@ def main():
         explore(data, min_count)
     elif page == "Evaluation":
         evaluation(data, min_count)
+    elif page == "Literature":
+        literature()
     else:
-        about(data["meta"])
+        about(data["meta"], hosted=data["mode"] == "public")
 
 
 main()

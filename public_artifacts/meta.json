@@ -1,0 +1,62 @@
+{
+  "built_at": "2026-10-24T09:21:22+00:00",
+  "coverage": {
+    "mc2d_total": 1458,
+    "gap_positive": 1458,
+    "unique_formulas": 1362,
+    "in_vocab": 591,
+    "dropped_not_in_vocab": 771,
+    "dropped_examples": [
+      "Ag2Bi2Cl2S3",
+      "Ag2C14H6N2NiO10",
+      "Ag2C4O10Pt",
+      "Ag2GeK2S4",
+      "Ag2GeK2Se4",
+      "Ag2KNbSe4",
+      "Ag2KSe4Ta",
+      "Ag2MoO12Te4",
+      "Ag3K3Se8Ta2",
+      "Ag3KSe2"
+    ]
+  },
+  "paper_check": {
+    "n_formulas": 30766,
+    "CuLi2Sb": 326,
+    "Cu3Nb2O8": 345,
+    "passed": true
+  },
+  "artifact_check": {
+    "in_in_spearman_vs_float32": 0.999999,
+    "out_in_spearman_vs_float32": 0.999999,
+    "context_rows": 10,
+    "passed": true
+  },
+  "pca_explained": [
+    0.0835,
+    0.0634,
+    0.0418
+  ],
+  "missing_targets": [],
+  "low_count_threshold": 20,
+  "bundle": {
+    "targets": [
+      "thermoelectric",
+      "photovoltaic",
+      "photocatalytic",
+      "ferroelectric",
+      "piezoelectric",
+      "superconducting",
+      "topological_insulator",
+      "magnetic",
+      "chemical_vapor_deposition",
+      "ALD",
+      "molecular_beam_epitaxy",
+      "magnetron_sputtering",
+      "sputtering",
+      "pulsed_laser_deposition",
+      "exfoliation"
+    ],
+    "contents": "precomputed scores, PCA coordinates, candidate metadata and top-10 context words; no embedding vectors",
+    "built_from_artifacts": "2026-10-24T09:21:22+00:00"
+  }
+}
