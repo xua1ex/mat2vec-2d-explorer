@@ -31,3 +31,30 @@ def test_chemical_family_priority():
     assert chemical_family("BiClO") == "halide"     # halide wins over oxide by convention
     assert chemical_family("AsGa") == "pnictide"
     assert chemical_family("GaSi") == "other"
+
+
+def test_build_paths_do_not_depend_on_working_directory():
+    from pathlib import Path
+    from explorer import build_data
+    root = Path(build_data.__file__).resolve().parents[1]
+    assert Path(build_data.OUT_DIR) == root / "artifacts"
+    assert Path(build_data.RAW_CACHE) == root / "data" / "mc2d_raw.json"
+
+
+def test_exported_vectors_stay_aligned_with_candidate_metadata():
+    """Regression: row i of cand_in/cand_out/coords must belong to row i of candidates.parquet."""
+    from pathlib import Path
+    import pandas as pd
+    art = Path(__file__).resolve().parents[1] / "artifacts"
+    if not (art / "vectors.npz").exists():
+        import pytest
+        pytest.skip("artifacts not built")
+    a = np.load(art / "vectors.npz")
+    cand = pd.read_parquet(art / "candidates.parquet")
+    coords = pd.read_parquet(art / "coords.parquet")
+    assert list(cand.token) == list(a["cand_tokens"]) == list(coords.token)
+    vocab_row = {t: i for i, t in enumerate(a["vocab_tokens"])}
+    for i, t in enumerate(a["cand_tokens"]):
+        assert np.array_equal(a["cand_in"][i], a["vocab_in"][vocab_row[t]]), t
+    counts = dict(zip(a["vocab_tokens"], a["counts"]))
+    assert all(counts[t] == c for t, c in zip(cand.token, cand["count"]))

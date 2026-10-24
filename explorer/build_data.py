@@ -11,6 +11,7 @@ import os
 import re
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,9 +21,10 @@ from explorer.formula import is_simple_formula, normalized_formula
 from explorer.ranking import context_words, ranks, score
 
 MC2D_URL = "https://optimade.materialscloud.org/main/mc2d/v1/structures"
-MODEL_DIR = os.environ.get("MAT2VEC_MODEL_DIR", "../mat2vec/mat2vec/training/models")
-RAW_CACHE = "data/mc2d_raw.json"
-OUT_DIR = "artifacts"
+ROOT = Path(__file__).resolve().parents[1]
+MODEL_DIR = os.environ.get("MAT2VEC_MODEL_DIR", str(ROOT.parent / "mat2vec" / "mat2vec" / "training" / "models"))
+RAW_CACHE = str(ROOT / "data" / "mc2d_raw.json")
+OUT_DIR = str(ROOT / "artifacts")
 LOW_COUNT = 20
 VOCAB_SIZE = 50_000
 CURATED_TARGETS = [

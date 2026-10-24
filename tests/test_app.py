@@ -155,3 +155,23 @@ def test_main_finding_text_follows_the_computed_bias():
 def test_limitations_state_actual_positive_set_sizes():
     body = text(eval_page())
     assert "13–26 per method" in body and "≈10–25" not in body
+
+
+def test_out_of_sync_artifacts_are_rejected(monkeypatch, tmp_path):
+    import shutil
+    for f in ("vectors.npz", "coords.parquet", "meta.json"):
+        shutil.copy(f"artifacts/{f}", tmp_path / f)
+    cand = pd.read_parquet("artifacts/candidates.parquet")
+    cand.iloc[::-1].to_parquet(tmp_path / "candidates.parquet", index=False)   # same rows, wrong order
+    monkeypatch.setenv("EXPLORER_ARTIFACTS", str(tmp_path))
+    at = run()
+    assert any("out of sync" in e.value for e in at.error)
+
+
+def test_app_finds_artifacts_from_any_working_directory(monkeypatch, tmp_path):
+    from pathlib import Path
+    app = str(Path(__file__).resolve().parents[1] / "explorer" / "app.py")
+    monkeypatch.delenv("EXPLORER_ARTIFACTS", raising=False)
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(app, default_timeout=60).run()
+    assert not at.error and not at.exception

@@ -107,7 +107,7 @@ def main():
     source = sys.argv[1] if len(sys.argv) > 1 else "openalex"
     only = sys.argv[2:] or list(METHODS)
     finder = best_hit if source == "openalex" else best_hit_crossref
-    out = Path(f"data/literature_candidates_{source}.csv")
+    out = Path(__file__).resolve().parents[1] / "data" / f"literature_candidates_{source}.csv"
     rows = []
     for method, (phrase, method_re) in METHODS.items():
         if method not in only:
@@ -118,7 +118,7 @@ def main():
             if hit:
                 rows.append({"method": method, "formula": material, "token": normalized_formula(material), **hit})
             time.sleep(0.15)
-    Path("data").mkdir(exist_ok=True)
+    out.parent.mkdir(exist_ok=True)
     with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()

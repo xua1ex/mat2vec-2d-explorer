@@ -32,6 +32,14 @@ SOFTWARE.
 
 ## MC2D (Materials Cloud two-dimensional crystals database)
 
-Band gaps and formulas are retrieved at build time from the MC2D OPTIMADE API (https://optimade.materialscloud.org/main/mc2d), licensed CC BY 4.0.
+Band gaps and formulas are retrieved at build time from the MC2D OPTIMADE API (https://optimade.materialscloud.org/main/mc2d),
+licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). MC2D does not endorse this project.
+
+**Changes made to the MC2D data** (in `explorer/build_data.py`; the raw API response is cached unmodified in `data/mc2d_raw.json`, which is not redistributed):
+- filtered to entries with a computed band gap > 0 (`_mcloud_band_gap > 0`); only `chemical_formula_reduced` and `_mcloud_band_gap` are used;
+- formulas normalized to Mat2vec's convention (elements sorted alphabetically, integer stoichiometry, e.g. WS2 -> S2W);
+- entries sharing a normalized formula (polymorphs) merged into one row, keeping the band-gap minimum and maximum and the entry count;
+- only formulas present in the Mat2vec vocabulary are kept (591 of 1,362);
+- chemical-family labels and Mat2vec scores are added; they are not MC2D data.
 Mounet, N. et al. *Nat. Nanotechnol.* 13, 246–252 (2018), doi:10.1038/s41565-017-0035-5.
 Campi, D., Mounet, N., Gibertini, M., Pizzi, G., Marzari, N. *ACS Nano* 17, 11268–11278 (2023).

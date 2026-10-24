@@ -13,16 +13,17 @@ import plotly.express as px
 import streamlit as st
 
 # `streamlit run explorer/app.py` puts explorer/ on sys.path, not the repo root.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from explorer import ranking as r  # noqa: E402
 
-ARTIFACTS = os.environ.get("EXPLORER_ARTIFACTS", "artifacts")
+ARTIFACTS = os.environ.get("EXPLORER_ARTIFACTS", str(ROOT / "artifacts"))
 CAVEAT = "Literature association before 2018, not feasibility."
 DEFAULT_TARGET = "chemical_vapor_deposition"
 MODES = {"out_in": "Co-occurrence score (output·input)", "in_in": "Similarity score (input·input)"}
 TOP = 20
 MIN_POS = 10
-KNOWN = Path(__file__).resolve().parents[1] / "data" / "known_methods.csv"
+KNOWN = ROOT / "data" / "known_methods.csv"
 METHODS = {
     "Chemical vapor deposition (CVD)": "chemical_vapor_deposition",
     "Atomic layer deposition (ALD)": "ALD",
@@ -52,11 +53,14 @@ FILES = ["vectors.npz", "candidates.parquet", "coords.parquet", "meta.json"]
 def load_artifacts(path):
     vec = dict(np.load(os.path.join(path, "vectors.npz")))
     cand = pd.read_parquet(os.path.join(path, "candidates.parquet"))
-    cand = cand.merge(pd.read_parquet(os.path.join(path, "coords.parquet")), on="token")
+    coords = pd.read_parquet(os.path.join(path, "coords.parquet"))
+    # Row i of the candidate vectors must describe row i of the metadata; a mismatch would silently mislabel scores.
+    aligned = list(cand.token) == list(vec["cand_tokens"]) == list(coords.token)
+    cand = cand.merge(coords, on="token")
     with open(os.path.join(path, "meta.json")) as f:
         meta = json.load(f)
     vec["vocab_index"] = {t: i for i, t in enumerate(vec["vocab_tokens"])}
-    return {"vec": vec, "cand": cand, "meta": meta}
+    return {"vec": vec, "cand": cand, "meta": meta, "aligned": aligned}
 
 
 def badges(row):
@@ -365,6 +369,10 @@ def main():
         st.error(f"No artifacts found in '{ARTIFACTS}'. Build them first:  python -m explorer.build_data")
         st.stop()
     data = load_artifacts(ARTIFACTS)
+    if not data["aligned"]:
+        st.error(f"Artifacts in '{ARTIFACTS}' are out of sync (candidate metadata and vectors are in a different "
+                 "order). Rebuild them:  python -m explorer.build_data")
+        st.stop()
     pages = ["Explore", "Evaluation", "About"]
     requested = st.query_params.get("page")  # ?page=Evaluation gives a shareable link
     page = st.sidebar.radio("Page", pages, key="page", index=pages.index(requested) if requested in pages else 0)
