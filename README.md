@@ -8,6 +8,14 @@ The main finding is a **popularity bias**:
 
 A verified literature set of 92 material–method pairs supports this as an exploratory, largely in-sample recovery test.
 
+## Tech stack
+
+- **Python 3.11**: NumPy and pandas for scoring, positive-only metrics and PCA (SVD).
+- **Streamlit** and **Plotly**: interactive dashboard with 2D/3D charts.
+- **gensim** loads the pretrained Mat2vec Word2Vec model (build step only); **pymatgen** handles formula normalization.
+- **Data APIs**: MC2D via OPTIMADE; OpenAlex and Crossref for literature curation.
+- **Testing**: pytest and Streamlit AppTest (55 tests).
+
 ## Relation to Mat2vec
 
 This project builds on [Mat2vec](https://github.com/materialsintelligence/mat2vec): word embeddings trained by Tshitoyan *et al.* on ~1.5 million materials-science abstracts (*Nature* 571, 95–98, 2019, doi:10.1038/s41586-019-1335-8).
@@ -20,7 +28,7 @@ This project builds on [Mat2vec](https://github.com/materialsintelligence/mat2ve
 |---|---|
 | ![Explore page](docs/screenshots/explore.png) | ![Evaluation page](docs/screenshots/evaluation.png) |
 
-More screenshots: [3D embedding map](docs/screenshots/explore3d.png), [About page](docs/screenshots/about.png).
+More screenshots: [3D embedding map](docs/screenshots/explore3d.png), [About page](docs/screenshots/about.png), [limited mode](docs/screenshots/limited.png).
 
 ## Features
 
@@ -116,6 +124,8 @@ streamlit run explorer/app.py            # open http://localhost:8501
 Without `artifacts/`, the app opens in **limited mode**:
 - **Works:** the About page and the literature dataset (92 verified pairs, filterable by method and growth type, with DOI links).
 - **Unavailable** (named in a banner rather than shown as broken controls): the rankings, the 2D/3D embedding map, context words, free-text targets, and the Evaluation analyses.
+
+![Limited mode](docs/screenshots/limited.png)
 
 ### 2b. Full mode: needs the pretrained Mat2vec model
 
