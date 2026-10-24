@@ -58,3 +58,26 @@ def test_exported_vectors_stay_aligned_with_candidate_metadata():
         assert np.array_equal(a["cand_in"][i], a["vocab_in"][vocab_row[t]]), t
     counts = dict(zip(a["vocab_tokens"], a["counts"]))
     assert all(counts[t] == c for t, c in zip(cand.token, cand["count"]))
+
+
+def test_build_explains_a_missing_model(monkeypatch, tmp_path):
+    import pytest
+    from explorer import build_data
+    monkeypatch.setattr(build_data, "MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["build_data"])
+    with pytest.raises(SystemExit) as exc:
+        build_data.main()
+    msg = str(exc.value)
+    assert "MAT2VEC_MODEL_DIR" in msg and str(tmp_path) in msg and "storage.googleapis.com/mat2vec/" in msg
+
+
+def test_build_explains_missing_build_dependencies(monkeypatch):
+    import sys
+    import pytest
+    from explorer import build_data
+    monkeypatch.setitem(sys.modules, "gensim", None)
+    monkeypatch.setitem(sys.modules, "gensim.models", None)
+    monkeypatch.setattr("sys.argv", ["build_data"])
+    with pytest.raises(SystemExit) as exc:
+        build_data.main()
+    assert "pip install -r requirements-build.txt" in str(exc.value)

@@ -175,3 +175,45 @@ def test_app_finds_artifacts_from_any_working_directory(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(app, default_timeout=60).run()
     assert not at.error and not at.exception
+
+
+def limited(monkeypatch, tmp_path, **query):
+    monkeypatch.setenv("EXPLORER_ARTIFACTS", str(tmp_path))   # empty folder = no model artifacts
+    at = AppTest.from_file(APP, default_timeout=60)
+    for k, v in query.items():
+        at.query_params[k] = v
+    return at.run()
+
+
+def test_limited_mode_offers_literature_and_about_and_names_missing_features(monkeypatch, tmp_path):
+    at = limited(monkeypatch, tmp_path)
+    assert not at.exception
+    assert at.radio(key="page").options == ["Literature", "About"]
+    body = text(at)
+    for feature in ("rankings", "2D/3D embedding map", "context words", "popularity-bias analysis"):
+        assert feature in body, feature
+    assert not at.slider                                  # no controls that would do nothing
+
+
+def test_limited_mode_literature_filters_and_doi_links(monkeypatch, tmp_path):
+    at = limited(monkeypatch, tmp_path)
+    assert len(at.dataframe[0].value) == 92
+    at.selectbox(key="lit_method").set_value("Molecular beam epitaxy (MBE)").run()
+    refs = at.dataframe[0].value
+    assert len(refs) == 18 and refs.DOI.str.startswith("https://doi.org/").all()
+    at.selectbox(key="lit_method").set_value("Chemical vapor deposition (CVD)").run()
+    at.multiselect(key="lit_growth").set_value(["direct_2d"]).run()
+    assert len(at.dataframe[0].value) == 16 and "n = 16" in text(at)
+
+
+def test_limited_mode_about_page(monkeypatch, tmp_path):
+    at = limited(monkeypatch, tmp_path, page="About")
+    assert not at.exception and at.radio(key="page").value == "About"
+    body = text(at)
+    for phrase in ("Mat2vec", "10.1038/s41586-019-1335-8", "MC2D", "CC BY 4.0", "**not** redistributed"):
+        assert phrase in body, phrase
+
+
+def test_limited_mode_ignores_full_mode_page_links(monkeypatch, tmp_path):
+    at = limited(monkeypatch, tmp_path, page="Evaluation")
+    assert at.radio(key="page").value == "Literature" and not at.exception

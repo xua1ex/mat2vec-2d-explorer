@@ -8,6 +8,12 @@ The main finding is a **popularity bias**:
 
 A verified literature set of 92 material–method pairs supports this as an exploratory, largely in-sample recovery test.
 
+## Relation to Mat2vec
+
+This project builds on [Mat2vec](https://github.com/materialsintelligence/mat2vec): word embeddings trained by Tshitoyan *et al.* on ~1.5 million materials-science abstracts (*Nature* 571, 95–98, 2019, doi:10.1038/s41586-019-1335-8).
+- **What it reuses:** the authors' pretrained embeddings, unchanged and never retrained; their formula normalization (`explorer/formula.py`, MIT); and the paper's own output·input scoring. The build step verifies that scoring by reproducing the paper's Fig. 2a ranks.
+- **What is new here:** the MC2D 2D-semiconductor candidate set, the five-method literature evaluation, the popularity-bias analysis and the dashboard.
+
 > **What this is not.** Scores reflect how abstracts published up to 2018 discuss these materials. They are **not** predictions of deposition feasibility, film quality or processing conditions.
 
 | Explore | Evaluation |
@@ -34,6 +40,7 @@ More screenshots: [3D embedding map](docs/screenshots/explore3d.png), [About pag
     - a growth-route breakdown;
     - DOI-linked references.
 - **About:** sources, licences and scientific limitations.
+- **Limited mode:** without the model, the app still opens with the About page and the filterable literature dataset, and names the features that need the model.
 - Shareable links: `?page=Evaluation`, `?view=3D`.
 
 ## Results
@@ -91,29 +98,63 @@ How to read it:
 
 ## Quickstart
 
+### 1. Install
+
 ```bash
 conda create -n mat2vec-explorer python=3.11 -y
 conda activate mat2vec-explorer
-pip install -r requirements.txt -r requirements-build.txt
+pip install -r requirements.txt          # the app (enough for limited mode)
+pip install -r requirements-build.txt    # build step and tests (needed for full mode)
 ```
 
-You need the pretrained Mat2vec model: three files, about 840 MB. If you have a [mat2vec](https://github.com/materialsintelligence/mat2vec) checkout next to this repo, the default path `../mat2vec/mat2vec/training/models` works. Otherwise download the files and point `MAT2VEC_MODEL_DIR` at their folder:
-
-- https://storage.googleapis.com/mat2vec/pretrained_embeddings
-- https://storage.googleapis.com/mat2vec/pretrained_embeddings.wv.vectors.npy
-- https://storage.googleapis.com/mat2vec/pretrained_embeddings.trainables.syn1neg.npy
+### 2a. Limited mode: no model needed
 
 ```bash
-python -m explorer.build_data          # ~10 s; downloads MC2D once, writes artifacts/ (local, ~42 MB)
-streamlit run explorer/app.py          # open http://localhost:8501
-pytest                                 # 49 tests (app tests need artifacts/)
+streamlit run explorer/app.py            # open http://localhost:8501
 ```
 
-`build_data` checks itself:
-- it reproduces the paper's Fig. 2a ranks (Li2CuSb 326, Cu3Nb2O8 345);
-- it verifies that the float16 artifacts give the same rankings as the full model (Spearman 0.999999 for both modes).
+Without `artifacts/`, the app opens in **limited mode**:
+- **Works:** the About page and the literature dataset (92 verified pairs, filterable by method and growth type, with DOI links).
+- **Unavailable** (named in a banner rather than shown as broken controls): the rankings, the 2D/3D embedding map, context words, free-text targets, and the Evaluation analyses.
 
-Both results are recorded in `artifacts/meta.json`.
+### 2b. Full mode: needs the pretrained Mat2vec model
+
+1. Download the three model files (~880 MB) from the original authors' storage. These are the same files the original mat2vec `setup.py` downloads:
+   - https://storage.googleapis.com/mat2vec/pretrained_embeddings
+   - https://storage.googleapis.com/mat2vec/pretrained_embeddings.wv.vectors.npy
+   - https://storage.googleapis.com/mat2vec/pretrained_embeddings.trainables.syn1neg.npy
+
+   A [mat2vec](https://github.com/materialsintelligence/mat2vec) checkout next to this repo works with no configuration (default path `../mat2vec/mat2vec/training/models`). Otherwise set `MAT2VEC_MODEL_DIR` to the files' folder.
+
+   > **Licensing caveat:** these files are third-party work by Tshitoyan *et al.* This project's MIT License does not cover them, and no licence for them has been confirmed. Download them yourself, and do not redistribute them or anything built from them (`artifacts/`).
+
+2. Build the artifacts and run the app:
+
+   ```bash
+   python -m explorer.build_data          # ~10 s; downloads MC2D once, writes artifacts/ (local, ~42 MB)
+   streamlit run explorer/app.py
+   ```
+
+   `build_data` checks itself:
+   - it reproduces the paper's Fig. 2a ranks (Li2CuSb 326, Cu3Nb2O8 345);
+   - it verifies that the float16 artifacts give the same rankings as the full model (Spearman 0.999999 for both modes).
+
+   Both results are recorded in `artifacts/meta.json`.
+
+### Tests
+
+```bash
+pytest                                   # 55 tests; the full-mode app and artifact tests need artifacts/
+```
+
+### Troubleshooting
+
+| Message | Fix |
+|---|---|
+| "Limited mode: no model artifacts found" | `artifacts/` is missing. Follow step 2b. |
+| "Pretrained Mat2vec model not found in …" | Download the three files and set `MAT2VEC_MODEL_DIR`. |
+| "The build step needs gensim and pymatgen" | `pip install -r requirements-build.txt` |
+| `ModuleNotFoundError: streamlit` / `plotly` | `pip install -r requirements.txt` |
 
 ## Architecture
 
@@ -128,7 +169,7 @@ data/
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
                       (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
-tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (49 tests)
+tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (55 tests)
 docs/             design spec, implementation plan, screenshots
 ```
 
@@ -150,3 +191,10 @@ How the pieces fit together:
     Tshitoyan *et al.*, downloaded separately from the authors' storage, and no licence for them has been confirmed.
     They and every vector artifact derived from them (`artifacts/`, `*.npy`, `*.npz`) are git-ignored and are not
     distributed with this repository. Check the terms with the Mat2vec authors before redistributing or hosting them.
+
+## How to cite
+
+If you use this project, please cite the work it builds on:
+- Tshitoyan, V. *et al.* Unsupervised word embeddings capture latent knowledge from materials science literature. *Nature* 571, 95–98 (2019). doi:10.1038/s41586-019-1335-8
+- Mounet, N. *et al.* Two-dimensional materials from high-throughput computational exfoliation of experimentally known compounds. *Nat. Nanotechnol.* 13, 246–252 (2018). doi:10.1038/s41565-017-0035-5
+- Campi, D. *et al.* Expansion of the Materials Cloud 2D Database. *ACS Nano* 17, 11268–11278 (2023). doi:10.1021/acsnano.2c11510

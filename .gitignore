@@ -9,3 +9,12 @@ pretrained_embeddings*
 __pycache__/
 .pytest_cache/
 data/literature_candidates_*.csv
+# local environments, secrets, logs and build leftovers
+.venv/
+venv/
+env/
+.env
+.streamlit/secrets.toml
+*.log
+*.egg-info/
+.ipynb_checkpoints/

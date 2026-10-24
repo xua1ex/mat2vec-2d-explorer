@@ -25,6 +25,9 @@ ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIR = os.environ.get("MAT2VEC_MODEL_DIR", str(ROOT.parent / "mat2vec" / "mat2vec" / "training" / "models"))
 RAW_CACHE = str(ROOT / "data" / "mc2d_raw.json")
 OUT_DIR = str(ROOT / "artifacts")
+MODEL_FILES = ["pretrained_embeddings", "pretrained_embeddings.wv.vectors.npy",
+               "pretrained_embeddings.trainables.syn1neg.npy"]
+MODEL_URL = "https://storage.googleapis.com/mat2vec/"  # official source used by the original mat2vec setup.py
 LOW_COUNT = 20
 VOCAB_SIZE = 50_000
 CURATED_TARGETS = [
@@ -153,11 +156,22 @@ def artifact_check(path, wv, syn1neg, cand_tokens, target="chemical_vapor_deposi
 
 
 def main():
-    from gensim.models import Word2Vec
+    try:
+        from gensim.models import Word2Vec
+    except ImportError:
+        raise SystemExit("The build step needs gensim and pymatgen:  pip install -r requirements-build.txt")
 
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--refresh", action="store_true", help="re-download MC2D instead of using the cache")
     args = ap.parse_args()
+    missing = [f for f in MODEL_FILES if not os.path.exists(os.path.join(MODEL_DIR, f))]
+    if missing:
+        raise SystemExit(
+            f"Pretrained Mat2vec model not found in {MODEL_DIR} (missing: {', '.join(missing)}).\n"
+            f"Download the three files from the original authors' storage:\n"
+            + "".join(f"  {MODEL_URL}{f}\n" for f in MODEL_FILES)
+            + "then set MAT2VEC_MODEL_DIR to their folder. They are third-party files by Tshitoyan et al.; "
+              "this project's MIT license does not cover them.")
     t0 = time.time()
 
     records = fetch_mc2d(args.refresh)

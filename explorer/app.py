@@ -311,16 +311,49 @@ def evaluation(data, min_count):
     refs = known[known.method == METHODS[label]]
     st.caption(f"n = {len(refs)} verified material–process pairs in the current selection. Each was checked against "
                "the paper's title or abstract.")
-    st.dataframe(pd.DataFrame({
-        "Formula": refs.formula, "Phase": refs.phase, "Growth type": refs.growth_type,
-        "Polymorph mismatch": refs.phase_mismatch, "Year": refs.year, "DOI": "https://doi.org/" + refs.doi,
-        "Note": refs.note, "Title": refs.title}),
-        hide_index=True, height=35 * (len(refs) + 1) + 3,
-        column_config={"DOI": st.column_config.LinkColumn("DOI", display_text=r"doi\.org/(.*)")})
+    references_table(refs)
 
 
-def about(meta):
-    cov, pc = meta["coverage"], meta["paper_check"]
+def references_table(refs, with_method=False):
+    cols = {"Method": refs.method.map({v: k for k, v in METHODS.items()})} if with_method else {}
+    cols.update({"Formula": refs.formula, "Phase": refs.phase, "Growth type": refs.growth_type,
+                 "Polymorph mismatch": refs.phase_mismatch, "Year": refs.year, "DOI": "https://doi.org/" + refs.doi,
+                 "Note": refs.note, "Title": refs.title})
+    st.dataframe(pd.DataFrame(cols), hide_index=True, height=35 * (len(refs) + 1) + 3,
+                 column_config={"DOI": st.column_config.LinkColumn("DOI", display_text=r"doi\.org/(.*)")})
+
+
+def literature():
+    """Limited mode: the verified literature set needs no model data."""
+    st.title("Literature dataset: verified material–method pairs")
+    st.markdown("Each pair links a 2D semiconductor to a deposition method and was checked against the paper's title "
+                "or abstract. Unreported pairs are unlabeled, not negatives; *Growth type* separates direct 2D growth "
+                "from thin films, precursor conversion and hybrid routes.")
+    known = load_known()
+    c1, c2 = st.columns(2)
+    method = c1.selectbox("Deposition method", ["All methods", *METHODS], key="lit_method")
+    growth_types = sorted(known.growth_type.unique())
+    growth = c2.multiselect("Growth type", growth_types, default=growth_types, key="lit_growth")
+    shown = known[known.growth_type.isin(growth)]
+    if method != "All methods":
+        shown = shown[shown.method == METHODS[method]]
+    st.caption(f"n = {len(shown)} of {len(known)} verified pairs shown.")
+    references_table(shown, with_method=True)
+
+
+def about(meta=None):
+    if meta:
+        pc, cov = meta["paper_check"], meta["coverage"]
+        check = (f"The build step reproduces the paper's Fig. 2a ranks (Li2CuSb rank {pc['CuLi2Sb']}, Cu3Nb2O8 rank "
+                 f"{pc['Cu3Nb2O8']}: {'passed' if pc['passed'] else 'FAILED'}).")
+        coverage = f"{cov['in_vocab']} of {cov['unique_formulas']:,} normalized formulas are in the Mat2vec vocabulary;"
+        variance = f"~{100 * sum(meta['pca_explained']):.0f}%"
+        built = f"Artifacts built {meta['built_at']}."
+    else:  # limited mode: no artifacts on this machine
+        check = "The build step checks that it reproduces the paper's Fig. 2a thermoelectric ranks."
+        coverage = "only formulas in the Mat2vec vocabulary can be ranked;"
+        variance = "a small fraction"
+        built = "No artifacts are present here, so the app runs in limited mode."
     st.title("About this project")
     st.markdown(f"""
 This dashboard asks a narrow question: **how does the materials-science literature, as captured by a 2019 word-embedding
@@ -333,15 +366,14 @@ model, associate known 2D semiconductors with properties and thin-film depositio
   two vectors. **Similarity (input·input)** compares the contexts two words appear in; **co-occurrence
   (output·input)** estimates how likely a material is to be mentioned next to a word, the score the paper used to
   predict thermoelectrics.
-- The pretrained model is used as-is, never retrained. The build step reproduces the paper's Fig. 2a ranks
-  (Li2CuSb rank {pc['CuLi2Sb']}, Cu3Nb2O8 rank {pc['Cu3Nb2O8']}: {'passed' if pc['passed'] else 'FAILED'}).
+- The pretrained model is used as-is, never retrained. {check}
 
 ### MC2D
 - Materials Cloud two-dimensional crystals database: Mounet *et al.*, *Nat. Nanotechnol.* 13, 246 (2018),
   doi:10.1038/s41565-017-0035-5; Campi *et al.*, *ACS Nano* 17, 11268 (2023). Retrieved through its public
   OPTIMADE API; licensed CC BY 4.0.
-- Candidates are MC2D entries with a DFT band gap > 0. {cov['in_vocab']} of {cov['unique_formulas']:,} normalized
-  formulas are in the Mat2vec vocabulary; polymorphs sharing a formula are merged (the band gap is shown as a range).
+- Candidates are MC2D entries with a DFT band gap > 0; {coverage} polymorphs sharing a formula are merged
+  (the band gap is shown as a range).
 
 ### Scientific limitations
 - Mat2vec captures relationships in the literature up to 2018, **not proven deposition feasibility**, film quality
@@ -351,7 +383,7 @@ model, associate known 2D semiconductors with properties and thin-film depositio
 - Unreported material–method pairs are unlabeled, not negatives. The verified literature set is small, and most of
   its papers predate 2018, so recovery results are exploratory and largely in-sample.
 - A formula token mixes all polymorphs and phases; DFT band gaps are approximate.
-- The PCA map shows ~{100 * sum(meta['pca_explained']):.0f}% of the embedding variance; rankings always use the full
+- The PCA map shows {variance} of the embedding variance; rankings always use the full
   200-dimensional vectors. Chemical-family colours follow a display convention (first match of halide, telluride,
   selenide, sulfide, oxide, nitride, pnictide, carbide), not a chemical classification.
 
@@ -359,15 +391,28 @@ model, associate known 2D semiconductors with properties and thin-film depositio
 - This project's code: MIT. `explorer/formula.py` is adapted from mat2vec (MIT, © 2019 Authors of Tshitoyan
   *et al.*). MC2D data: CC BY 4.0. Full notices: `THIRD_PARTY_NOTICES.md`.
 - The pretrained embeddings are **not** redistributed: their redistribution terms are unverified, so the
-  `artifacts/` built from them stay on your machine. Artifacts built {meta['built_at']}.
+  `artifacts/` built from them stay on your machine. {built}
 """)
+
+
+def limited_mode():
+    st.error(
+        f"**Limited mode:** no model artifacts found in '{ARTIFACTS}'. The About page and the literature dataset work "
+        "without them. Unavailable until the pretrained Mat2vec model is installed: rankings (co-occurrence and "
+        "similarity), the 2D/3D embedding map, context words, free-text targets, and the popularity-bias analysis "
+        "and recovery metrics. To enable them, download the pretrained Mat2vec files (see README) and build the "
+        "artifacts first:  python -m explorer.build_data")
+    pages = ["Literature", "About"]
+    requested = st.query_params.get("page")
+    page = st.sidebar.radio("Page", pages, key="page", index=pages.index(requested) if requested in pages else 0)
+    literature() if page == "Literature" else about()
 
 
 def main():
     # Checked outside the cache so a build made while the app runs is picked up on the next rerun.
     if not all(os.path.exists(os.path.join(ARTIFACTS, f)) for f in FILES):
-        st.error(f"No artifacts found in '{ARTIFACTS}'. Build them first:  python -m explorer.build_data")
-        st.stop()
+        limited_mode()
+        return
     data = load_artifacts(ARTIFACTS)
     if not data["aligned"]:
         st.error(f"Artifacts in '{ARTIFACTS}' are out of sync (candidate metadata and vectors are in a different "
