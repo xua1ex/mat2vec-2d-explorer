@@ -38,7 +38,8 @@ LIMITATIONS = """**Read these results with care.**
 - Unreported material–method pairs are unlabeled, not confirmed negatives.
 - Some verified papers report thin films, bulk crystals, post-deposition conversion (e.g. selenizing a metal film)
   or a different polymorph than the MC2D entry; see *Growth type* and *Phase* below.
-- Positive sets are small (≈10–25 per method), so differences between methods are indicative, not conclusive.
+- Positive sets are small (13–26 per method; 0–14 for direct 2D growth), so differences between methods are
+  indicative, not conclusive.
 - A higher similarity score does not imply better deposition quality or optimal processing conditions."""
 
 st.set_page_config(page_title="2D Semiconductor Explorer", layout="wide")
@@ -94,7 +95,8 @@ def pick_target(vec):
     if free.strip():
         resolved = r.resolve_target(free, vec["vocab_index"])
         if resolved is None:
-            st.warning(f"“{free}” is not in vocabulary (top 50,000 Mat2vec tokens). "
+            st.warning(f"“{free}” is not in vocabulary (top 50,000 Mat2vec tokens; formulas are stored "
+                       "normalized, e.g. WS2 → S2W). "
                        f"Showing “{chosen.replace('_', ' ')}” instead.")
         else:
             chosen = resolved
@@ -232,16 +234,20 @@ def evaluation(data, min_count):
     label = st.selectbox("Deposition method", list(METHODS), key="eval_method")
 
     # --- Main finding: needs no literature labels at all.
-    st.subheader("Main finding: the two scores have opposite popularity biases")
-    st.markdown(
-        "For each method we correlate every candidate's score with how often its token occurs in the training "
-        "corpus (Spearman, log scale). **Co-occurrence (out·in)** correlates positively for all five methods: it "
-        "rewards much-discussed materials. **Similarity (in·in)** correlates negatively: it rewards rare tokens "
-        "whose vectors come from very few sentences. Neither ranking can be read as a neutral measure of fit.")
     targets = {lab: vec["vocab_in"][vec["vocab_index"][tok]] for lab, tok in METHODS.items()}
     bias = pd.DataFrame([{"Method": lab, "Ranking": RANKINGS[m],
                           "Spearman": r.popularity_bias(r.score(vec[VECTORS[m]][idx], t), sub["count"])["spearman"]}
                          for lab, t in targets.items() for m in ("out_in", "in_in")])
+    out_pos = int((bias[bias.Ranking == RANKINGS["out_in"]].Spearman > 0).sum())
+    in_neg = int((bias[bias.Ranking == RANKINGS["in_in"]].Spearman < 0).sum())
+    st.subheader("Main finding: the two scores have opposite popularity biases")
+    st.markdown(
+        "For each method we correlate every candidate's score with how often its token occurs in the training "
+        f"corpus (Spearman). With the current filter, **co-occurrence (out·in)** correlates positively for "
+        f"**{out_pos} of 5 methods**: it rewards much-discussed materials. **Similarity (in·in)** correlates "
+        f"negatively for **{in_neg} of 5 methods**: it rewards rare tokens whose vectors come from very few "
+        "sentences. At the default filter (count > 3) both patterns hold for 5 of 5 methods; raising the minimum "
+        "count removes rare tokens and weakens them, which shows how much of the effect rare tokens drive.")
     st.plotly_chart(px.bar(bias, x="Method", y="Spearman", color="Ranking", barmode="group", height=380,
                            color_discrete_map=MODE_COLORS,
                            labels={"Spearman": "Spearman: score vs log token count"}), width="stretch")

@@ -6,8 +6,13 @@ Two ranking modes share one function:
            "likelihood of co-occurring with the target word"
 All scores use the full 200-d vectors; PCA is display-only.
 """
+import math
+import re
+
 import numpy as np
 import pandas as pd
+
+FORMULA_PART = re.compile(r"([A-Z][a-z]?)(\d*)")
 
 
 def unit(X):
@@ -28,10 +33,27 @@ def ranks(scores):
     return out
 
 
+def sort_formula(text):
+    """Plain integer formula -> Mat2vec's normalized token, e.g. WS2 -> S2W, Mo2S4 -> MoS2; else None.
+
+    Pure-Python twin of formula.normalized_formula (which needs pymatgen, a build-only dependency);
+    a test checks the two agree on every formula in the literature set.
+    """
+    parts = FORMULA_PART.findall(text)
+    if not parts or "".join(e + n for e, n in parts) != text:
+        return None
+    counts = {}
+    for element, n in parts:
+        counts[element] = counts.get(element, 0) + int(n or 1)
+    g = math.gcd(*counts.values())
+    return "".join(e + (str(c // g) if c // g > 1 else "") for e, c in sorted(counts.items()))
+
+
 def resolve_target(text, token_index):
-    """Map user text to a vocabulary token: exact (formulas are case-sensitive), lowercase, then phrase."""
+    """Map user text to a vocabulary token: exact (formulas are case-sensitive), the formula in Mat2vec's
+    normalized order (WS2 -> S2W), lowercase, then phrase."""
     text = text.strip()
-    for cand in (text, text.lower(), "_".join(text.lower().split())):
+    for cand in (text, sort_formula(text), text.lower(), "_".join(text.lower().split())):
         if cand and cand in token_index:
             return cand
     return None

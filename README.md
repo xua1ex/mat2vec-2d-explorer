@@ -127,6 +127,7 @@ data/
   known_methods.csv   92 verified material–method pairs (DOI, growth type, phase, evidence, notes)
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
+                      (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
 tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (32 tests)
 docs/             design spec, implementation plan, screenshots
 ```

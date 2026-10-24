@@ -134,3 +134,24 @@ def test_query_params_select_page_and_view():
     at.query_params["view"] = "3D"
     at.run()
     assert at.radio(key="dims").value == "3D" and not at.exception
+
+
+def test_free_text_formula_in_written_order_resolves():
+    at = run()
+    at.text_input(key="free").input("WS2").run()
+    assert not at.exception
+    assert not any("not in vocabulary" in w.value for w in at.warning)
+    assert any(s.value == "Target: S2W" for s in at.subheader)
+
+
+def test_main_finding_text_follows_the_computed_bias():
+    at = eval_page()
+    at.slider(key="min_count").set_value(100).run()
+    body = text(at)
+    assert "for all five methods" not in body          # at count >= 100 the pattern breaks
+    assert "of 5 methods" in body
+
+
+def test_limitations_state_actual_positive_set_sizes():
+    body = text(eval_page())
+    assert "13–26 per method" in body and "≈10–25" not in body

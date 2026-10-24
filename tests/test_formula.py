@@ -22,3 +22,11 @@ def test_d_and_t_are_not_elements_like_in_original_mat2vec():
     assert not is_simple_formula("AgNT")
     assert normalized_formula("AlD3") == "AlD3"   # unparseable -> returned unchanged, as before
     assert is_simple_formula("Bi2Te3") and normalized_formula("Ti3C2") == "C2Ti3"
+
+
+def test_runtime_sort_formula_matches_vendored_normalization():
+    import pandas as pd
+    from explorer.ranking import sort_formula
+    formulas = set(pd.read_csv("data/known_methods.csv").formula) | {"LiCoO2", "Mo2S4", "GaAs", "Bi2Te3"}
+    for f in formulas:
+        assert sort_formula(f) == normalized_formula(f), f

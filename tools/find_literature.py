@@ -8,6 +8,7 @@ formula and whose title or abstract names the method. growth_type / phase are ke
 every row is reviewed by hand before it is copied into data/known_methods.csv.
 """
 import csv
+import os
 import re
 import sys
 import time
@@ -19,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from explorer.formula import normalized_formula  # noqa: E402
 
 API = "https://api.openalex.org/works"
-MAILTO = "you@example.com"
+MAILTO = os.environ.get("LITERATURE_MAILTO", "")  # polite-pool contact for OpenAlex/Crossref; set it locally
 METHODS = {
     "chemical_vapor_deposition": ("chemical vapor deposition", r"chemical vapou?r deposition|\bCVD\b"),
     "ALD": ("atomic layer deposition", r"atomic layer deposition|\bALD\b"),
@@ -101,6 +102,8 @@ def best_hit_crossref(material, phrase, method_re):
 
 
 def main():
+    if not MAILTO:
+        sys.exit("Set LITERATURE_MAILTO to your email (OpenAlex/Crossref polite pool) before running.")
     source = sys.argv[1] if len(sys.argv) > 1 else "openalex"
     only = sys.argv[2:] or list(METHODS)
     finder = best_hit if source == "openalex" else best_hit_crossref

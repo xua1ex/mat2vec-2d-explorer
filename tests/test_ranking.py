@@ -61,3 +61,16 @@ def test_method_report_rows_baseline_and_insufficient_label():
     small = r.method_report(cin, cout, t, counts, pos & (counts > 25), k=10, min_pos=10)
     assert not small.loc["out_in"].sufficient and np.isnan(small.loc["out_in"].recall_at_k)
     assert not np.isnan(small.loc["out_in"].spearman_log_count)   # bias analysis needs no labels
+
+
+def test_resolve_target_accepts_formula_in_written_order():
+    idx = {"S2W": 0, "MoS2": 1, "CoLiO2": 2}
+    assert r.resolve_target("WS2", idx) == "S2W"
+    assert r.resolve_target("LiCoO2", idx) == "CoLiO2"
+    assert r.resolve_target("Mo2S4", idx) == "MoS2"
+
+
+def test_sort_formula_handles_only_simple_integer_formulas():
+    assert r.sort_formula("WS2") == "S2W" and r.sort_formula("Mo2S4") == "MoS2"
+    assert r.sort_formula("thermoelectric") is None and r.sort_formula("ws2") is None
+    assert r.sort_formula("Ni0.5Fe0.5") is None
