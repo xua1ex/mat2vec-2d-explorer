@@ -4,3 +4,4 @@ data/mc2d_raw.json
 artifacts/
 __pycache__/
 .pytest_cache/
+data/literature_candidates_*.csv

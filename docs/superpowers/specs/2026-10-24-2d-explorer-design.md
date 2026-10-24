@@ -163,3 +163,37 @@ Streamlit styling, plot details (Plotly), the exact 50k cutoff, test granularity
 - That gensim 4.3+ loads the pretrained model.
 - Redistribution terms for the pretrained weights. The repo code is MIT; the weights' licence is not stated separately. Until this is verified, artifacts stay local and nothing is pushed or deployed.
 - Whether MC2D's OPTIMADE band gap is null for some semiconductors (filtering on gap > 0 drops those).
+
+## Amendment (user, 2026-10-24): multi-method evaluation
+
+The evaluation covers five deposition methods. Target tokens were checked in the vocabulary:
+
+| Method | Token | Count |
+|---|---|---|
+| CVD | `chemical_vapor_deposition` | 11,680 |
+| ALD | `ALD` | 5,072 |
+| MBE | `molecular_beam_epitaxy` | 5,616 |
+| Magnetron sputtering | `magnetron_sputtering` | 7,948 |
+| PLD | `pulsed_laser_deposition` | 6,520 |
+
+`magnetron_sputtering` is added to the Explore dropdown. The generic `sputtering` stays.
+
+- **Literature set** `data/known_methods.csv` (replaces `known_cvd.csv`). Columns: `method, formula, token, phase, growth_type, doi, year, title, evidence`.
+  - `growth_type` is one of `direct_2d`, `thin_film`, `conversion` (deposit a precursor, then sulfurize, selenize or otherwise convert), `hybrid`, `bulk`.
+  - `evidence` quotes the title or abstract sentence that reports the process.
+  - Each row is checked by reading the title and abstract.
+  - A material may appear under several methods.
+  - Aim for 10–20 pairs per method. Never weaken the evidence to reach that number.
+  - Candidate papers are found with `tools/find_literature.py` (OpenAlex search, kept for provenance). Rows are kept only after review.
+- **Evaluation:** for each method, both modes plus a log-count baseline, all under the shared min-count filter:
+  - Recall@20 and median percentile rank (positive-only);
+  - Spearman of score vs log count.
+
+  A "direct 2D growth only" toggle restricts the positives. Fewer than 10 positives in the filtered set → recovery is labelled "insufficient data", while the ranking and bias analysis are still shown.
+- **Evaluation page:**
+  - a method selector;
+  - a cross-method comparison table;
+  - a bias scatter per method;
+  - a references table;
+  - sample sizes on every metric;
+  - the limitations list (literature relationships, not feasibility; unlabeled ≠ negative; bulk, conversion and polymorph caveats; small positive sets; similarity ≠ deposition quality or optimal conditions).

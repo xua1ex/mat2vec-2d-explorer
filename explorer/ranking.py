@@ -74,6 +74,30 @@ def median_percentile(scores, positive):
     return float(np.median(ranks(scores)[positive] / len(scores) * 100))
 
 
+def method_report(cand_in, cand_out, target_in, counts, positive, k=20, min_pos=10):
+    """Both modes plus a log-count baseline (a 'mode' whose score is popularity alone), on one candidate set.
+
+    Positive-only recovery metrics become NaN when there are fewer than `min_pos` known positives;
+    the popularity-bias Spearman needs no labels and is always reported.
+    """
+    counts = np.asarray(counts, dtype=float)
+    positive = np.asarray(positive, dtype=bool)
+    n_pos = int(positive.sum())
+    enough = n_pos >= min_pos
+    scores = {"out_in": score(cand_out, target_in), "in_in": score(cand_in, target_in), "log_count": np.log(counts)}
+    rows = {}
+    for mode, s in scores.items():
+        rows[mode] = {
+            "recall_at_k": recall_at_k(s, positive, k) if enough else np.nan,
+            "median_percentile": median_percentile(s, positive) if enough else np.nan,
+            "spearman_log_count": popularity_bias(s, counts)["spearman"],
+            "n_positive": n_pos,
+            "n_candidates": len(s),
+            "sufficient": enough,
+        }
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
 def match_known(known, candidates):
     """Boolean mask over candidates for known tokens, plus known tokens absent from the candidates."""
     known_set, cand_set = set(known), set(candidates)

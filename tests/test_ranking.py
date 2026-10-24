@@ -45,3 +45,19 @@ def test_positive_only_metrics():
 def test_match_known_reports_missing():
     mask, missing = r.match_known(["MoS2", "S2W", "XyZ9"], ["S2W", "MoS2", "Se2W"])
     assert list(mask) == [True, True, False] and missing == ["XyZ9"]
+
+
+def test_method_report_rows_baseline_and_insufficient_label():
+    rng = np.random.default_rng(1)
+    cin, cout, t = rng.normal(size=(30, 4)), rng.normal(size=(30, 4)), rng.normal(size=4)
+    counts = np.arange(1, 31)
+    pos = np.zeros(30, bool)
+    pos[-12:] = True                                    # the 12 most frequent are the known positives
+    rep = r.method_report(cin, cout, t, counts, pos, k=10, min_pos=10)
+    assert list(rep.index) == ["out_in", "in_in", "log_count"]
+    lc = rep.loc["log_count"]
+    assert np.isclose(lc.recall_at_k, 10 / 12) and np.isclose(lc.spearman_log_count, 1.0)
+    assert lc.n_positive == 12 and lc.n_candidates == 30 and lc.sufficient
+    small = r.method_report(cin, cout, t, counts, pos & (counts > 25), k=10, min_pos=10)
+    assert not small.loc["out_in"].sufficient and np.isnan(small.loc["out_in"].recall_at_k)
+    assert not np.isnan(small.loc["out_in"].spearman_log_count)   # bias analysis needs no labels

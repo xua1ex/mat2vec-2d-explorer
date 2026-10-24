@@ -30,7 +30,7 @@ CURATED_TARGETS = [
     "superconducting", "topological_insulator", "magnetic",
     # "atomic_layer_deposition" never became a phrase token; "ALD" (count 5,072) is the ALD token.
     "chemical_vapor_deposition", "ALD", "molecular_beam_epitaxy",
-    "sputtering", "pulsed_laser_deposition", "exfoliation",
+    "magnetron_sputtering", "sputtering", "pulsed_laser_deposition", "exfoliation",
 ]
 # Display convention for colouring only, first match wins (BiOCl -> halide).
 FAMILIES = [

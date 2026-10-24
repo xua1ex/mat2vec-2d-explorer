@@ -57,3 +57,34 @@ def test_unknown_free_text_target_is_friendly():
     at = run()
     at.text_input(key="free").input("unobtainium").run()
     assert not at.exception and any("not in vocabulary" in w.value for w in at.warning)
+
+
+def eval_page():
+    at = run()
+    at.radio(key="page").set_value("Evaluation").run()
+    return at
+
+
+def test_evaluation_page_reports_bias_without_precision_metrics():
+    at = eval_page()
+    assert not at.exception
+    assert any("Spearman" in m.label for m in at.metric)
+    assert not any("AUPRC" in m.label or "precision" in m.label.lower() for m in at.metric)
+    body = text(at)
+    assert "unlabeled, not confirmed negatives" in body and "n = " in body
+    assert "in-sample" in body   # most verified papers predate the 2018 training cut-off
+
+
+def test_evaluation_page_lists_references_and_method_selector():
+    at = eval_page()
+    at.selectbox(key="eval_method").set_value("Molecular beam epitaxy (MBE)").run()
+    assert not at.exception
+    refs = at.dataframe[-1].value
+    assert "DOI" in refs.columns and len(refs) > 0
+
+
+def test_evaluation_page_marks_insufficient_data():
+    at = eval_page()
+    at.toggle(key="direct2d").set_value(True).run()
+    assert not at.exception and "insufficient data" in text(at).lower() + " ".join(
+        str(v) for df in at.dataframe for v in df.value.astype(str).values.ravel()).lower()
