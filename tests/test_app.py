@@ -1,5 +1,6 @@
 """Streamlit AppTest smoke tests. All but the first need local artifacts (python -m explorer.build_data)."""
 import pandas as pd
+import pytest
 from streamlit.testing.v1 import AppTest
 
 APP = "../explorer/app.py"   # AppTest resolves relative to this test file
@@ -23,12 +24,14 @@ def test_missing_artifacts_shows_build_command(monkeypatch, tmp_path):
     assert not at.error   # limited mode is a supported state, not a failure
 
 
+@pytest.mark.artifacts
 def test_explore_renders_with_default_target():
     at = run()
     assert not at.exception and len(at.dataframe) >= 2
     assert any(CAVEAT in c.value for c in at.caption)
 
 
+@pytest.mark.artifacts
 def test_min_count_default_matches_paper_and_filters_both_tables():
     n_paper = int((pd.read_parquet("artifacts/candidates.parquet")["count"] > 3).sum())
     at = run()
@@ -39,6 +42,7 @@ def test_min_count_default_matches_paper_and_filters_both_tables():
     assert "591 of 591 candidates shown" in text(at)
 
 
+@pytest.mark.artifacts
 def test_explains_token_count_bias_coverage_and_pca_limits():
     at = run()
     body = text(at)
@@ -48,12 +52,14 @@ def test_explains_token_count_bias_coverage_and_pca_limits():
     assert "200-dimensional" in body and "19" in body
 
 
+@pytest.mark.artifacts
 def test_3d_toggle_renders():
     at = run()
     at.radio(key="dims").set_value("3D").run()
     assert not at.exception
 
 
+@pytest.mark.artifacts
 def test_unknown_free_text_target_is_friendly():
     at = run()
     at.text_input(key="free").input("unobtainium").run()
@@ -66,6 +72,7 @@ def eval_page():
     return at
 
 
+@pytest.mark.artifacts
 def test_evaluation_page_reports_bias_without_precision_metrics():
     at = eval_page()
     assert not at.exception
@@ -76,6 +83,7 @@ def test_evaluation_page_reports_bias_without_precision_metrics():
     assert "in-sample" in body   # most verified papers predate the 2018 training cut-off
 
 
+@pytest.mark.artifacts
 def test_evaluation_page_lists_references_and_method_selector():
     at = eval_page()
     at.selectbox(key="eval_method").set_value("Molecular beam epitaxy (MBE)").run()
@@ -84,6 +92,7 @@ def test_evaluation_page_lists_references_and_method_selector():
     assert "DOI" in refs.columns and len(refs) > 0
 
 
+@pytest.mark.artifacts
 def test_evaluation_page_marks_insufficient_data():
     at = eval_page()
     at.toggle(key="direct2d").set_value(True).run()
@@ -91,6 +100,7 @@ def test_evaluation_page_marks_insufficient_data():
         str(v) for df in at.dataframe for v in df.value.astype(str).values.ravel()).lower()
 
 
+@pytest.mark.artifacts
 def test_evaluation_leads_with_popularity_bias_then_recovery():
     at = eval_page()
     heads = [s.value for s in at.subheader]
@@ -101,6 +111,7 @@ def test_evaluation_leads_with_popularity_bias_then_recovery():
     assert "exploratory literature-association recovery" in body and "63 of 92" in body
 
 
+@pytest.mark.artifacts
 def test_recovery_reports_listed_and_eligible_positives_and_growth_types():
     at = eval_page()
     tables = [df.value for df in at.dataframe]
@@ -109,6 +120,7 @@ def test_recovery_reports_listed_and_eligible_positives_and_growth_types():
     assert any({"direct_2d", "thin_film", "conversion", "hybrid"} <= set(t.columns) for t in tables)
 
 
+@pytest.mark.artifacts
 def test_direct_2d_mode_excludes_polymorph_mismatches():
     at = eval_page()
     at.toggle(key="direct2d").set_value(True).run()
@@ -126,6 +138,7 @@ def test_about_page_explains_sources_licences_and_limits():
         assert phrase in body, phrase
 
 
+@pytest.mark.artifacts
 def test_query_params_select_page_and_view():
     at = AppTest.from_file(APP, default_timeout=60)
     at.query_params["page"] = "Evaluation"
@@ -137,6 +150,7 @@ def test_query_params_select_page_and_view():
     assert at.radio(key="dims").value == "3D" and not at.exception
 
 
+@pytest.mark.artifacts
 def test_free_text_formula_in_written_order_resolves():
     at = run()
     at.text_input(key="free").input("WS2").run()
@@ -145,6 +159,7 @@ def test_free_text_formula_in_written_order_resolves():
     assert any(s.value == "Target: S2W" for s in at.subheader)
 
 
+@pytest.mark.artifacts
 def test_main_finding_text_follows_the_computed_bias():
     at = eval_page()
     at.slider(key="min_count").set_value(100).run()
@@ -153,11 +168,13 @@ def test_main_finding_text_follows_the_computed_bias():
     assert "of 5 methods" in body
 
 
+@pytest.mark.artifacts
 def test_limitations_state_actual_positive_set_sizes():
     body = text(eval_page())
     assert "13–26 per method" in body and "≈10–25" not in body
 
 
+@pytest.mark.artifacts
 def test_out_of_sync_artifacts_are_rejected(monkeypatch, tmp_path):
     import shutil
     for f in ("vectors.npz", "coords.parquet", "meta.json"):
@@ -169,6 +186,7 @@ def test_out_of_sync_artifacts_are_rejected(monkeypatch, tmp_path):
     assert any("out of sync" in e.value for e in at.error)
 
 
+@pytest.mark.artifacts
 def test_app_finds_artifacts_from_any_working_directory(monkeypatch, tmp_path):
     from pathlib import Path
     app = str(Path(__file__).resolve().parents[1] / "explorer" / "app.py")
@@ -176,6 +194,7 @@ def test_app_finds_artifacts_from_any_working_directory(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(app, default_timeout=60).run()
     assert not at.error and not at.exception
+    assert at.radio(key="page").options == ["Explore", "Evaluation", "About"]   # full mode, not limited mode
 
 
 def limited(monkeypatch, tmp_path, **query):

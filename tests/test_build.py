@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from explorer.build_data import chemical_family, group_mc2d, pca
 
@@ -41,14 +42,12 @@ def test_build_paths_do_not_depend_on_working_directory():
     assert Path(build_data.RAW_CACHE) == root / "data" / "mc2d_raw.json"
 
 
+@pytest.mark.artifacts
 def test_exported_vectors_stay_aligned_with_candidate_metadata():
     """Regression: row i of cand_in/cand_out/coords must belong to row i of candidates.parquet."""
     from pathlib import Path
     import pandas as pd
     art = Path(__file__).resolve().parents[1] / "artifacts"
-    if not (art / "vectors.npz").exists():
-        import pytest
-        pytest.skip("artifacts not built")
     a = np.load(art / "vectors.npz")
     cand = pd.read_parquet(art / "candidates.parquet")
     coords = pd.read_parquet(art / "coords.parquet")
