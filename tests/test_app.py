@@ -237,3 +237,12 @@ def test_limited_mode_about_page(monkeypatch, tmp_path):
 def test_limited_mode_ignores_full_mode_page_links(monkeypatch, tmp_path):
     at = limited(monkeypatch, tmp_path, page="Evaluation")
     assert at.radio(key="page").value == "Literature" and not at.exception
+
+
+def test_limited_mode_warning_names_the_folder_not_its_absolute_path(monkeypatch, tmp_path):
+    missing = tmp_path / "artifacts"                       # e.g. /mount/src/<repo>/artifacts on a server
+    monkeypatch.setenv("EXPLORER_ARTIFACTS", str(missing))
+    at = AppTest.from_file(APP, default_timeout=60).run()
+    banner = at.warning[0].value
+    assert "no model artifacts found in 'artifacts'" in banner
+    assert str(tmp_path) not in banner

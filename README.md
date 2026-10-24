@@ -14,7 +14,7 @@ A verified literature set of 92 material–method pairs supports this as an expl
 - **Streamlit** and **Plotly**: interactive dashboard with 2D/3D charts.
 - **gensim** loads the pretrained Mat2vec Word2Vec model (build step only); **pymatgen** handles formula normalization.
 - **Data APIs**: MC2D via OPTIMADE; OpenAlex and Crossref for literature curation.
-- **Testing**: pytest and Streamlit AppTest (55 tests).
+- **Testing**: pytest and Streamlit AppTest (56 tests).
 
 ## Relation to Mat2vec
 
@@ -154,7 +154,7 @@ Without `artifacts/`, the app opens in **limited mode**:
 ### Tests
 
 ```bash
-pytest                                   # 55 tests; without artifacts/, the 18 full-mode tests are skipped with a reason
+pytest                                   # 56 tests; without artifacts/, the 18 full-mode tests are skipped with a reason
 ```
 
 ### Troubleshooting
@@ -179,7 +179,7 @@ data/
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
                       (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
-tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (55 tests)
+tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (56 tests)
 docs/             design spec, implementation plan, screenshots
 ```
 

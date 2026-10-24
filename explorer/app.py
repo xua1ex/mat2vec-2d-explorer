@@ -397,7 +397,8 @@ model, associate known 2D semiconductors with properties and thin-film depositio
 
 def limited_mode():
     st.warning(
-        f"**Limited mode:** no model artifacts found in '{ARTIFACTS}'. The About page and the literature dataset work "
+        # Folder name only: on a hosted demo the absolute path is the server's, which means nothing to visitors.
+        f"**Limited mode:** no model artifacts found in '{Path(ARTIFACTS).name}'. The About page and the literature dataset work "
         "without them. Unavailable until the pretrained Mat2vec model is installed: rankings (co-occurrence and "
         "similarity), the 2D/3D embedding map, context words, free-text targets, and the popularity-bias analysis "
         "and recovery metrics. To enable them, download the pretrained Mat2vec files (see README) and build the "
