@@ -30,6 +30,8 @@ METHODS = {
     "Magnetron sputtering": "magnetron_sputtering",
     "Pulsed laser deposition (PLD)": "pulsed_laser_deposition",
 }
+MODE_COLORS = {"Co-occurrence (out·in)": "#4C78A8", "Similarity (in·in)": "#F58518"}
+VECTORS = {"out_in": "cand_out", "in_in": "cand_in"}  # which candidate vectors each mode scores
 RANKINGS = {"out_in": "Co-occurrence (out·in)", "in_in": "Similarity (in·in)", "log_count": "Token-count baseline"}
 LIMITATIONS = """**Read these results with care.**
 - Mat2vec captures relationships in the literature up to 2018, not proven deposition feasibility.
@@ -61,7 +63,7 @@ def badges(row):
     if row["low_count"]:
         notes.append("low count")
     if row["polymorphs_merged"]:
-        notes.append(f"{row['n_entries']} polymorphs merged")
+        notes.append(f"{row['n_entries']} polymorphs")
     return ", ".join(notes)
 
 
@@ -75,7 +77,6 @@ def ranking_table(df, mode):
     return pd.DataFrame({
         "Rank": out[f"rank_{mode}"],
         "Formula (MC2D)": out["formula_examples"],
-        "Mat2vec token": out["token"],
         "Score": out[mode].round(3),
         "Band gap (eV)": out.apply(gap_label, axis=1),
         "Token count": out["count"],
@@ -159,7 +160,8 @@ def pca_view(shown, meta):
     ev = [100 * x for x in meta["pca_explained"]]
     st.subheader("Embedding map")
     c1, c2 = st.columns(2)
-    dims = c1.radio("View", ["2D", "3D"], horizontal=True, key="dims")
+    dims = c1.radio("View", ["2D", "3D"], horizontal=True, key="dims",
+                    index=1 if st.query_params.get("view") == "3D" else 0)
     color_by = c2.radio("Colour by", ["Chemical family", "Co-occurrence score", "Band gap"],
                         horizontal=True, key="color")
     color = {"Chemical family": "family", "Co-occurrence score": "out_in", "Band gap": "gap_max"}[color_by]
@@ -167,7 +169,8 @@ def pca_view(shown, meta):
     labels.update({"family": "Family", "out_in": "Co-occurrence", "gap_max": "Band gap max (eV)"})
     hover = {"token": True, "gap_min": ":.2f", "gap_max": ":.2f", "count": True,
              "pc1": False, "pc2": False, "pc3": False}
-    common = dict(color=color, hover_name="formula_examples", hover_data=hover, labels=labels, height=560)
+    common = dict(color=color, hover_name="formula_examples", hover_data=hover, labels=labels, height=560,
+                  color_discrete_sequence=px.colors.qualitative.Bold)
     if dims == "2D":
         fig = px.scatter(shown, x="pc1", y="pc2", **common)
     else:
@@ -213,77 +216,141 @@ def fmt(value, ok, digits=2):
 
 def evaluation(data, min_count):
     vec, cand = data["vec"], data["cand"]
+    full = load_known()
+    n_pre = int((full.year.astype(int) <= 2018).sum())
     st.title("Evaluation: what the embeddings capture, and where they fail")
     st.warning(LIMITATIONS)
 
     direct = st.toggle("Direct 2D growth only", key="direct2d",
-                       help="Count only papers that grow the 2D material directly; exclude thin films, "
-                            "precursor conversion, hybrid processes and bulk crystals.")
-    known = load_known()
-    if direct:
-        known = known[known.growth_type == "direct_2d"]
+                       help="Count only papers that grow the 2D material directly in the MC2D phase; exclude thin "
+                            "films, precursor conversion, hybrid routes, bulk crystals and polymorph mismatches.")
+    known = full[(full.growth_type == "direct_2d") & ~full.phase_mismatch] if direct else full
     keep = (cand["count"] >= min_count).to_numpy()
     sub, idx = cand[keep], np.flatnonzero(keep)
-    st.markdown(f"Evaluated on **n = {len(sub)}** MC2D candidates (token count ≥ {min_count}). "
-                f"Known positives: verified literature pairs from `data/known_methods.csv`"
-                f"{' (direct 2D growth only)' if direct else ''}. Recovery metrics need at least "
-                f"{MIN_POS} positives; otherwise they read *insufficient data*.")
-    n_pre = int((pd.to_numeric(known.year, errors="coerce") <= 2018).sum())
-    st.info(f"**Recovery is largely in-sample.** {n_pre} of {len(known)} verified papers were published in "
-            "2018 or earlier, inside Mat2vec's training window, so the model may have read these very abstracts. "
-            "High recovery shows the embeddings encode known literature associations; it is not a test of "
-            "predicting new material–process pairs.")
-
-    reports, rows = {}, []
-    for label, token in METHODS.items():
-        t_in = vec["vocab_in"][vec["vocab_index"][token]]
-        positive, _ = r.match_known(list(known.token[known.method == token]), list(sub.token))
-        rep = r.method_report(vec["cand_in"][idx], vec["cand_out"][idx], t_in, sub["count"].to_numpy(),
-                              positive, k=TOP, min_pos=MIN_POS)
-        reports[label] = (rep, positive, t_in)
-        for mode, row in rep.iterrows():
-            rows.append({"Method": label, "Ranking": RANKINGS[mode], "Known positives (n)": int(row.n_positive),
-                         f"Recall@{TOP}": fmt(row.recall_at_k, row.sufficient),
-                         "Median percentile rank (lower = better, 50 = chance)":
-                             fmt(row.median_percentile, row.sufficient, 1),
-                         "Spearman vs log token count": f"{row.spearman_log_count:.2f}"})
-    st.subheader("Ranking performance across deposition methods")
-    st.dataframe(pd.DataFrame(rows), hide_index=True)
-    st.caption("Positive-only metrics: unlabeled materials are never counted as wrong. The token-count "
-               "baseline ranks materials by popularity alone; Mat2vec adds value only where it beats it.")
-
-    bars = pd.DataFrame([{"Method": label, "Ranking": RANKINGS[m], "Spearman": rep.loc[m, "spearman_log_count"]}
-                         for label, (rep, _, _) in reports.items() for m in ("out_in", "in_in")])
-    st.subheader("Popularity bias by method")
-    st.plotly_chart(px.bar(bars, x="Method", y="Spearman", color="Ranking", barmode="group", height=380,
-                           labels={"Spearman": "Spearman: score vs log token count"}), width="stretch")
-    st.caption("Above 0: the ranking favours frequently mentioned materials. Below 0: it favours rare "
-               "tokens, whose embeddings are learned from very little text.")
-
+    tokens = list(sub.token)
+    st.markdown(f"All analyses use **n = {len(sub)}** MC2D candidates (token count ≥ {min_count}).")
     label = st.selectbox("Deposition method", list(METHODS), key="eval_method")
-    rep, positive, t_in = reports[label]
-    m = st.columns(3)
-    m[0].metric("Known positives (n)", f"{int(rep.n_positive.iloc[0])} of {len(sub)}")
-    m[1].metric("Spearman, co-occurrence vs log count", f"{rep.loc['out_in', 'spearman_log_count']:.2f}")
-    m[2].metric("Spearman, similarity vs log count", f"{rep.loc['in_in', 'spearman_log_count']:.2f}")
+
+    # --- Main finding: needs no literature labels at all.
+    st.subheader("Main finding: the two scores have opposite popularity biases")
+    st.markdown(
+        "For each method we correlate every candidate's score with how often its token occurs in the training "
+        "corpus (Spearman, log scale). **Co-occurrence (out·in)** correlates positively for all five methods: it "
+        "rewards much-discussed materials. **Similarity (in·in)** correlates negatively: it rewards rare tokens "
+        "whose vectors come from very few sentences. Neither ranking can be read as a neutral measure of fit.")
+    targets = {lab: vec["vocab_in"][vec["vocab_index"][tok]] for lab, tok in METHODS.items()}
+    bias = pd.DataFrame([{"Method": lab, "Ranking": RANKINGS[m],
+                          "Spearman": r.popularity_bias(r.score(vec[VECTORS[m]][idx], t), sub["count"])["spearman"]}
+                         for lab, t in targets.items() for m in ("out_in", "in_in")])
+    st.plotly_chart(px.bar(bias, x="Method", y="Spearman", color="Ranking", barmode="group", height=380,
+                           color_discrete_map=MODE_COLORS,
+                           labels={"Spearman": "Spearman: score vs log token count"}), width="stretch")
+    sel = bias[bias.Method == label].set_index("Ranking").Spearman
+    m = st.columns(2)
+    m[0].metric(f"Spearman, co-occurrence vs log count ({label})", f"{sel[RANKINGS['out_in']]:.2f}")
+    m[1].metric(f"Spearman, similarity vs log count ({label})", f"{sel[RANKINGS['in_in']]:.2f}")
     mode = st.radio("Score shown", ["out_in", "in_in"], horizontal=True, key="eval_mode",
                     format_func=lambda k: RANKINGS[k])
+    positive, _ = r.match_known(list(known.token[known.method == METHODS[label]]), tokens)
     plot = pd.DataFrame({"Formula": sub.formula_examples, "Token count (log scale)": sub["count"],
-                         "Score": r.score(vec["cand_out" if mode == "out_in" else "cand_in"][idx], t_in),
+                         "Score": r.score(vec["cand_out" if mode == "out_in" else "cand_in"][idx], targets[label]),
                          "Literature": np.where(positive, "verified pair", "unlabeled")})
     st.plotly_chart(px.scatter(plot, x="Token count (log scale)", y="Score", color="Literature", log_x=True,
                                hover_name="Formula", height=420,
-                               category_orders={"Literature": ["verified pair", "unlabeled"]}), width="stretch")
+                               color_discrete_map={"verified pair": "#E45756", "unlabeled": "#9AA0A6"},
+                               category_orders={"Literature": ["unlabeled", "verified pair"]}), width="stretch")
+
+    # --- Supporting evidence: small, mostly in-sample literature set.
+    st.subheader("Supporting evidence: exploratory literature-association recovery")
+    st.info(f"**{n_pre} of {len(full)}** supporting papers were published by 2018 and may overlap Mat2vec's "
+            "training corpus, so this recovery is largely in-sample: it shows the embeddings encode known literature "
+            "associations, not that they predict deposition feasibility or new material–process pairs.")
+    st.markdown(
+        "This is an exploratory literature-association recovery test on unique material–method pairs. "
+        "Known pairs are positives; every other material is *unlabeled*, never counted as wrong. "
+        f"Recovery metrics need at least {MIN_POS} eligible positives; otherwise they read *insufficient data*. "
+        + ("**Direct 2D growth only:** thin films, conversion, hybrid routes and bulk crystals are left out, and "
+           "polymorph-mismatched pairs are excluded because a report on another phase does not support the MC2D phase."
+           if direct else
+           "**All verified pairs:** formula-level associations, including thin films, conversion and hybrid routes; "
+           "polymorph-mismatched pairs are kept here but flagged in the references."))
+    rows = []
+    for lab, token in METHODS.items():
+        listed = known[known.method == token]
+        pos, _ = r.match_known(list(listed.token), tokens)
+        rep = r.method_report(vec["cand_in"][idx], vec["cand_out"][idx], targets[lab], sub["count"].to_numpy(),
+                              pos, k=TOP, min_pos=MIN_POS)
+        for mode_, row in rep.iterrows():
+            rows.append({"Method": lab, "Ranking": RANKINGS[mode_], "Listed pairs": len(listed),
+                         "Eligible positives (n)": int(row.n_positive),
+                         f"Recall@{TOP}": fmt(row.recall_at_k, row.sufficient),
+                         "Median percentile rank (lower = better, 50 = chance)":
+                             fmt(row.median_percentile, row.sufficient, 1)})
+    st.dataframe(pd.DataFrame(rows), hide_index=True, height=35 * (len(rows) + 1) + 3)
+    st.caption("Listed pairs = verified pairs in the current selection; eligible positives = those whose material "
+               "passes the token-count filter and is used in the metric. The token-count baseline ranks by "
+               "popularity alone.")
+
+    st.markdown("**How each pair was obtained** (all verified pairs, by growth route)")
+    routes = pd.crosstab(full.method.map({v: k for k, v in METHODS.items()}), full.growth_type)
+    routes = routes.reindex(columns=["direct_2d", "thin_film", "conversion", "hybrid", "bulk"], fill_value=0)
+    routes["polymorph mismatch"] = full.groupby(full.method.map({v: k for k, v in METHODS.items()})).phase_mismatch.sum()
+    st.dataframe(routes.reset_index(names="Method"), hide_index=True)
 
     st.subheader(f"Literature references: {label}")
     refs = known[known.method == METHODS[label]]
-    st.caption(f"n = {len(refs)} verified material–process pairs. Each was checked against the paper's title "
-               "or abstract; growth type and phase are recorded because many reports are thin films, "
-               "precursor conversion or a different polymorph than the MC2D entry.")
+    st.caption(f"n = {len(refs)} verified material–process pairs in the current selection. Each was checked against "
+               "the paper's title or abstract.")
     st.dataframe(pd.DataFrame({
-        "Formula": refs.formula, "Phase": refs.phase, "Growth type": refs.growth_type, "Year": refs.year,
-        "DOI": "https://doi.org/" + refs.doi, "Note": refs.note, "Title": refs.title}),
-        hide_index=True, column_config={"DOI": st.column_config.LinkColumn("DOI", display_text=r"doi\.org/(.*)")})
+        "Formula": refs.formula, "Phase": refs.phase, "Growth type": refs.growth_type,
+        "Polymorph mismatch": refs.phase_mismatch, "Year": refs.year, "DOI": "https://doi.org/" + refs.doi,
+        "Note": refs.note, "Title": refs.title}),
+        hide_index=True, height=35 * (len(refs) + 1) + 3,
+        column_config={"DOI": st.column_config.LinkColumn("DOI", display_text=r"doi\.org/(.*)")})
+
+
+def about(meta):
+    cov, pc = meta["coverage"], meta["paper_check"]
+    st.title("About this project")
+    st.markdown(f"""
+This dashboard asks a narrow question: **how does the materials-science literature, as captured by a 2019 word-embedding
+model, associate known 2D semiconductors with properties and thin-film deposition methods?**
+
+### Mat2vec
+- Word2Vec (skip-gram, 200 dimensions) trained by Tshitoyan *et al.* on ~1.5 million materials-science abstracts
+  published up to 2018: *Nature* 571, 95–98 (2019), doi:10.1038/s41586-019-1335-8.
+- Every word, phrase (e.g. `chemical_vapor_deposition`) and normalized chemical formula (e.g. WS2 → `S2W`) has
+  two vectors. **Similarity (input·input)** compares the contexts two words appear in; **co-occurrence
+  (output·input)** estimates how likely a material is to be mentioned next to a word, the score the paper used to
+  predict thermoelectrics.
+- The pretrained model is used as-is, never retrained. The build step reproduces the paper's Fig. 2a ranks
+  (Li2CuSb rank {pc['CuLi2Sb']}, Cu3Nb2O8 rank {pc['Cu3Nb2O8']}: {'passed' if pc['passed'] else 'FAILED'}).
+
+### MC2D
+- Materials Cloud two-dimensional crystals database: Mounet *et al.*, *Nat. Nanotechnol.* 13, 246 (2018),
+  doi:10.1038/s41565-017-0035-5; Campi *et al.*, *ACS Nano* 17, 11268 (2023). Retrieved through its public
+  OPTIMADE API; licensed CC BY 4.0.
+- Candidates are MC2D entries with a DFT band gap > 0. {cov['in_vocab']} of {cov['unique_formulas']:,} normalized
+  formulas are in the Mat2vec vocabulary; polymorphs sharing a formula are merged (the band gap is shown as a range).
+
+### Scientific limitations
+- Mat2vec captures relationships in the literature up to 2018, **not proven deposition feasibility**, film quality
+  or optimal processing conditions.
+- Rankings are biased by how often a material is written about: co-occurrence favours famous materials,
+  similarity favours rare tokens with unreliable vectors (see the Evaluation page).
+- Unreported material–method pairs are unlabeled, not negatives. The verified literature set is small, and most of
+  its papers predate 2018, so recovery results are exploratory and largely in-sample.
+- A formula token mixes all polymorphs and phases; DFT band gaps are approximate.
+- The PCA map shows ~{100 * sum(meta['pca_explained']):.0f}% of the embedding variance; rankings always use the full
+  200-dimensional vectors. Chemical-family colours follow a display convention (first match of halide, telluride,
+  selenide, sulfide, oxide, nitride, pnictide, carbide), not a chemical classification.
+
+### Licences and provenance
+- This project's code: MIT. `explorer/formula.py` is adapted from mat2vec (MIT, © 2019 Authors of Tshitoyan
+  *et al.*). MC2D data: CC BY 4.0. Full notices: `THIRD_PARTY_NOTICES.md`.
+- The pretrained embeddings are **not** redistributed: their redistribution terms are unverified, so the
+  `artifacts/` built from them stay on your machine. Artifacts built {meta['built_at']}.
+""")
 
 
 def main():
@@ -292,7 +359,9 @@ def main():
         st.error(f"No artifacts found in '{ARTIFACTS}'. Build them first:  python -m explorer.build_data")
         st.stop()
     data = load_artifacts(ARTIFACTS)
-    page = st.sidebar.radio("Page", ["Explore", "Evaluation", "About"], key="page")
+    pages = ["Explore", "Evaluation", "About"]
+    requested = st.query_params.get("page")  # ?page=Evaluation gives a shareable link
+    page = st.sidebar.radio("Page", pages, key="page", index=pages.index(requested) if requested in pages else 0)
     # One filter for every page and both ranking modes.
     min_count = st.sidebar.slider(
         "Minimum token count", 1, 100, 4, key="min_count",
@@ -305,7 +374,7 @@ def main():
     elif page == "Evaluation":
         evaluation(data, min_count)
     else:
-        st.info("The About page is coming in the next build step.")
+        about(data["meta"])
 
 
 main()

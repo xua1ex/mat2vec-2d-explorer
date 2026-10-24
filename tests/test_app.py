@@ -8,7 +8,7 @@ CAVEAT = "Literature association before 2018, not feasibility."
 
 def text(at):
     """All visible text of the rendered app, for substring checks."""
-    parts = [e.value for kind in ("markdown", "caption", "info", "warning", "error") for e in getattr(at, kind)]
+    parts = [e.value for kind in ("markdown", "caption", "info", "warning", "error", "subheader", "title") for e in getattr(at, kind)]
     return "\n".join(str(p) for p in parts)
 
 
@@ -88,3 +88,49 @@ def test_evaluation_page_marks_insufficient_data():
     at.toggle(key="direct2d").set_value(True).run()
     assert not at.exception and "insufficient data" in text(at).lower() + " ".join(
         str(v) for df in at.dataframe for v in df.value.astype(str).values.ravel()).lower()
+
+
+def test_evaluation_leads_with_popularity_bias_then_recovery():
+    at = eval_page()
+    heads = [s.value for s in at.subheader]
+    main = next(i for i, h in enumerate(heads) if h.startswith("Main finding"))
+    support = next(i for i, h in enumerate(heads) if h.startswith("Supporting evidence"))
+    assert main < support
+    body = text(at)
+    assert "exploratory literature-association recovery" in body and "63 of 92" in body
+
+
+def test_recovery_reports_listed_and_eligible_positives_and_growth_types():
+    at = eval_page()
+    tables = [df.value for df in at.dataframe]
+    rec = next(t for t in tables if "Eligible positives (n)" in t.columns)
+    assert "Listed pairs" in rec.columns
+    assert any({"direct_2d", "thin_film", "conversion", "hybrid"} <= set(t.columns) for t in tables)
+
+
+def test_direct_2d_mode_excludes_polymorph_mismatches():
+    at = eval_page()
+    at.toggle(key="direct2d").set_value(True).run()
+    assert "polymorph-mismatched pairs are excluded" in text(at)
+    assert "63 of 92" in text(at)
+
+
+def test_about_page_explains_sources_licences_and_limits():
+    at = run()
+    at.radio(key="page").set_value("About").run()
+    body = text(at)
+    assert not at.exception
+    for phrase in ("Mat2vec", "MC2D", "CC BY 4.0", "MIT", "10.1038/s41586-019-1335-8",
+                   "10.1038/s41565-017-0035-5", "not proven deposition feasibility", "THIRD_PARTY_NOTICES.md"):
+        assert phrase in body, phrase
+
+
+def test_query_params_select_page_and_view():
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.query_params["page"] = "Evaluation"
+    at.run()
+    assert at.radio(key="page").value == "Evaluation"
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.query_params["view"] = "3D"
+    at.run()
+    assert at.radio(key="dims").value == "3D" and not at.exception
