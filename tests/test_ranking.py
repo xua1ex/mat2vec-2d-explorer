@@ -74,3 +74,4 @@ def test_sort_formula_handles_only_simple_integer_formulas():
     assert r.sort_formula("WS2") == "S2W" and r.sort_formula("Mo2S4") == "MoS2"
     assert r.sort_formula("thermoelectric") is None and r.sort_formula("ws2") is None
     assert r.sort_formula("Ni0.5Fe0.5") is None
+    assert r.sort_formula("W0") is None and r.sort_formula("Mo0S2") is None   # zero counts: no crash

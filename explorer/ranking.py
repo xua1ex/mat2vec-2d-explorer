@@ -45,6 +45,8 @@ def sort_formula(text):
     counts = {}
     for element, n in parts:
         counts[element] = counts.get(element, 0) + int(n or 1)
+    if 0 in counts.values():  # "W0" would divide by zero; mat2vec does not treat these as formulas either
+        return None
     g = math.gcd(*counts.values())
     return "".join(e + (str(c // g) if c // g > 1 else "") for e, c in sorted(counts.items()))
 

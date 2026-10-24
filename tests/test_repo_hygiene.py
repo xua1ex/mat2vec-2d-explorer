@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 
 def test_no_personal_email_in_tracked_files():
@@ -12,3 +13,11 @@ def test_mc2d_attribution_discloses_changes_and_links_licence():
     assert "https://creativecommons.org/licenses/by/4.0/" in notices
     for change in ("band gap > 0", "normalized", "merged", "Mat2vec vocabulary"):
         assert change in notices, change
+
+
+def test_readme_test_count_matches_suite():
+    import re
+    collected = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"], capture_output=True, text=True).stdout
+    n = int(re.search(r"(\d+) tests? collected", collected).group(1))
+    readme = open("README.md").read()
+    assert f"{n} tests" in readme and not any(f"{m} tests" in readme for m in re.findall(r"(\d+) tests", readme) if int(m) != n)

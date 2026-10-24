@@ -106,7 +106,7 @@ You need the pretrained Mat2vec model: three files, about 840 MB. If you have a 
 ```bash
 python -m explorer.build_data          # ~10 s; downloads MC2D once, writes artifacts/ (local, ~42 MB)
 streamlit run explorer/app.py          # open http://localhost:8501
-pytest                                 # 32 tests (app tests need artifacts/)
+pytest                                 # 45 tests (app tests need artifacts/)
 ```
 
 `build_data` checks itself:
@@ -128,7 +128,7 @@ data/
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
                       (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
-tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (32 tests)
+tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (45 tests)
 docs/             design spec, implementation plan, screenshots
 ```
 
