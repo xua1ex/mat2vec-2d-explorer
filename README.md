@@ -14,7 +14,7 @@ A verified literature set of 92 material–method pairs supports this as an expl
 - **Streamlit** and **Plotly**: interactive dashboard with 2D/3D charts.
 - **gensim** loads the pretrained Mat2vec Word2Vec model (build step only); **pymatgen** handles formula normalization.
 - **Data APIs**: MC2D via OPTIMADE; OpenAlex and Crossref for literature curation.
-- **Testing**: pytest and Streamlit AppTest (68 tests).
+- **Testing**: pytest and Streamlit AppTest (69 tests).
 
 ## Relation to Mat2vec
 
@@ -157,7 +157,7 @@ If `public_artifacts/` is also missing, the app falls back to **limited mode**: 
 ### Tests
 
 ```bash
-pytest                                   # 68 tests; without artifacts/, the 20 full-mode tests are skipped with a reason
+pytest                                   # 69 tests; without artifacts/, the 20 full-mode tests are skipped with a reason
 ```
 
 ### Troubleshooting
@@ -175,7 +175,7 @@ Choose these in the deploy screen; the Python version and entrypoint are not rea
 - **Repository / branch:** `xua1ex/mat2vec-2d-explorer`, `main`
 - **Main file path:** `explorer/app.py`
 - **Advanced settings → Python version: Python 3.11** (the platform default is 3.12; the app is tested on 3.11)
-- **Dependencies:** the root `requirements.txt` (the five runtime packages) is the only dependency file Community Cloud finds. `requirements-build.txt` is not installed, so neither gensim nor the model is needed on the server.
+- **Dependencies:** the root `requirements.txt` (the six runtime packages) is the only dependency file Community Cloud finds. `requirements-build.txt` is not installed, so neither gensim nor the model is needed on the server.
 
 With no `artifacts/` on the server, the app runs on `public_artifacts/`.
 
@@ -194,12 +194,12 @@ data/
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
                       (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
-tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (68 tests)
+tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (69 tests)
 docs/             design spec, implementation plan, screenshots
 ```
 
 How the pieces fit together:
-- **Runtime:** the app needs only `requirements.txt` (streamlit, pandas, numpy, plotly, pyarrow).
+- **Runtime:** the app needs only `requirements.txt` (streamlit, pandas, numpy, scipy, plotly, pyarrow; scipy is used by pandas for Spearman correlations).
 - **Build time:** the build step adds gensim, pymatgen and requests.
 - **Scoring:** both modes come from one `score()` function. Co-occurrence passes the materials' output vectors, similarity passes their input vectors.
 

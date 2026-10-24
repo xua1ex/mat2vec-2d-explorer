@@ -59,6 +59,6 @@ def test_streamlit_cloud_uses_requirements_txt_with_runtime_deps_only():
             assert not (folder / name).exists(), folder / name
     assert not (root / "explorer" / "requirements.txt").exists()
     deps = {line.split("==")[0] for line in (root / "requirements.txt").read_text().split() if line}
-    assert deps == {"streamlit", "pandas", "numpy", "plotly", "pyarrow"}
+    assert deps == {"streamlit", "pandas", "numpy", "scipy", "plotly", "pyarrow"}   # scipy: pandas Spearman
     readme = (root / "README.md").read_text()
     assert "explorer/app.py" in readme and "Python 3.11" in readme and "Advanced settings" in readme
