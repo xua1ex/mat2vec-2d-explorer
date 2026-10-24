@@ -19,7 +19,8 @@ def run():
 def test_missing_artifacts_shows_build_command(monkeypatch, tmp_path):
     monkeypatch.setenv("EXPLORER_ARTIFACTS", str(tmp_path))
     at = run()
-    assert any("python -m explorer.build_data" in e.value for e in at.error)
+    assert any("python -m explorer.build_data" in w.value for w in at.warning)
+    assert not at.error   # limited mode is a supported state, not a failure
 
 
 def test_explore_renders_with_default_target():
