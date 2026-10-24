@@ -1,5 +1,5 @@
-# Build step and tests only (the app needs requirements.txt alone)
-gensim>=4.3,<5
-pymatgen
-requests
-pytest
+# Build step and tests only (the app needs requirements.txt alone). Versions tested 2026-10-24.
+gensim==4.4.0
+pymatgen==2026.10.24
+requests==2.34.2
+pytest==9.1.1
