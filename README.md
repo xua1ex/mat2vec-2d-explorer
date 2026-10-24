@@ -144,7 +144,7 @@ Without `artifacts/`, the app opens in **limited mode**:
 ### Tests
 
 ```bash
-pytest                                   # 55 tests; the full-mode app and artifact tests need artifacts/
+pytest                                   # 55 tests; without artifacts/, the 18 full-mode tests are skipped with a reason
 ```
 
 ### Troubleshooting
