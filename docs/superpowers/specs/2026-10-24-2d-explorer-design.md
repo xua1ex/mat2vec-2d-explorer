@@ -117,7 +117,7 @@ Built on the pretrained Mat2vec embeddings (Tshitoyan et al., *Nature* 571, 95, 
 8. **Targets.**
    - Curated dropdown, checked against the vocabulary at build time:
      - properties: thermoelectric, photovoltaic, photocatalytic, ferroelectric, piezoelectric, superconducting, topological_insulator, magnetic;
-     - methods: chemical_vapor_deposition, atomic_layer_deposition, molecular_beam_epitaxy, sputtering, pulsed_laser_deposition, exfoliation.
+     - methods: chemical_vapor_deposition, ALD, molecular_beam_epitaxy, sputtering, pulsed_laser_deposition, exfoliation. (`atomic_layer_deposition` is not a vocabulary token; `ALD` is, with count 5,072.)
    - Free-text box: lowercase, join spaces with `_`, look up in the 50k table. Show "not in vocabulary" otherwise.
 9. **Explanations.** For a selected candidate, show:
    - token count and rank in both modes;

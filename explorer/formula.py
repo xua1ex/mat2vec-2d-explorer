@@ -7,7 +7,8 @@ See THIRD_PARTY_NOTICES.md.
 
 The logic is unchanged so that formulas map to the exact tokens in the pretrained
 Mat2vec vocabulary (e.g. WS2 -> S2W). The only edits: module-level functions instead
-of class methods, and stdlib `re` instead of `regex` (the pattern is compatible).
+of class methods, stdlib `re` instead of `regex` (the pattern is compatible), and an
+ISOTOPE_SYMBOL guard that undoes a newer-pymatgen behaviour change (see below).
 """
 import re
 
@@ -17,6 +18,9 @@ from pymatgen.core.periodic_table import Element
 
 # Exactly IV, VI or has 2 consecutive II, or roman in parenthesis: is not a simple formula.
 VALENCE_INFO = re.compile(r"(II+|^IV$|^VI$|\(IV\)|\(V?I{0,3}\))")
+# Added (not in mat2vec): pymatgen >= 2023 parses D and T as hydrogen isotopes, the 2019 pymatgen did not.
+# Rejecting them keeps formula detection identical to how the pretrained vocabulary was built.
+ISOTOPE_SYMBOL = re.compile(r"[DT](?![a-z])")
 
 
 def is_element(txt):
@@ -34,7 +38,7 @@ def is_simple_formula(text):
     Excludes some roman numbers (IV) and all-caps abbreviations without digits,
     which also excludes a few real materials such as BN (a known mat2vec limitation).
     """
-    if VALENCE_INFO.search(text) is not None:
+    if VALENCE_INFO.search(text) is not None or ISOTOPE_SYMBOL.search(text) is not None:
         # 2 consecutive II, IV or VI should not be parsed as formula.
         return False
     elif any(char.isdigit() or char.islower() for char in text):
@@ -68,6 +72,8 @@ def get_ordered_integer_formula(el_amt, max_denominator=1000):
 
 def normalized_formula(formula, max_denominator=1000):
     """Normalize a formula to the Mat2vec vocabulary form, e.g. Ni0.5Fe0.5 -> FeNi."""
+    if ISOTOPE_SYMBOL.search(formula):
+        return formula
     try:
         formula_dict = Composition(formula).get_el_amt_dict()
         return get_ordered_integer_formula(formula_dict, max_denominator)
