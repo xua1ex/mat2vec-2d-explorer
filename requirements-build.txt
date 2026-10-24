@@ -1,0 +1,5 @@
+# Build step and tests only (the app needs requirements.txt alone)
+gensim>=4.3,<5
+pymatgen
+requests
+pytest

@@ -1,2 +1,6 @@
 .superpowers/
 .DS_Store
+data/mc2d_raw.json
+artifacts/
+__pycache__/
+.pytest_cache/
