@@ -4,7 +4,10 @@
 
 `explorer/formula.py` is adapted from `mat2vec/processing/process.py` (https://github.com/materialsintelligence/mat2vec, commit 7ca8961).
 The build step reads the pretrained Mat2vec embeddings from Tshitoyan et al., *Nature* 571, 95–98 (2019), doi:10.1038/s41586-019-1335-8.
-The embeddings are **not** redistributed here. Their redistribution terms have not been verified, so the generated `artifacts/` stay local.
+The pretrained embeddings are distributed under the MIT License below. Redistribution of the pretrained weights under
+the MIT License was confirmed by first author Vahe Tshitoyan via email in October 2026. This repository ships the four derived files in `artifacts/`
+(including `vectors.npz`: input vectors for the 50,482 most frequent tokens and the candidates' input and output vectors,
+in float16) under that licence. The original ~880 MB model files are not included.
 
 ```
 MIT License
@@ -34,8 +37,8 @@ SOFTWARE.
 
 The results-only bundle for the hosted version contains precomputed, limited-scope outputs derived from the
 pretrained Mat2vec embeddings: similarity scores for 15 predefined targets, PCA coordinates and top-10 context words.
-It does not contain the embedding vectors or model files. Because the redistribution terms of the weights are
-unresolved, the licensing status of these derived outputs is unresolved as well. See `public_artifacts/README.md`.
+It does not contain the embedding vectors or model files and serves as a fallback when `artifacts/` is unavailable.
+It is distributed under the same MIT License. See `public_artifacts/README.md`.
 
 ## MC2D (Materials Cloud two-dimensional crystals database)
 

@@ -1,10 +1,11 @@
 .superpowers/
 .DS_Store
 data/mc2d_raw.json
-artifacts/
-# pretrained Mat2vec weights and anything derived from them: redistribution terms unverified
+# raw pretrained Mat2vec model files (~880 MB) are never committed; of the derived artifacts only these four are
+# (MIT License, redistribution confirmed by the first author): vectors.npz, candidates.parquet, coords.parquet, meta.json
 *.npy
 *.npz
+!artifacts/vectors.npz
 pretrained_embeddings*
 __pycache__/
 .pytest_cache/

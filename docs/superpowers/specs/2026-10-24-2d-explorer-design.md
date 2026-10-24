@@ -197,3 +197,12 @@ The evaluation covers five deposition methods. Target tokens were checked in the
   - a references table;
   - sample sizes on every metric;
   - the limitations list (literature relationships, not feasibility; unlabeled ≠ negative; bulk, conversion and polymorph caveats; small positive sets; similarity ≠ deposition quality or optimal conditions).
+
+---
+
+## Amendment (October 2026): weights licensing confirmed
+
+Redistribution of the pretrained Mat2vec weights under the mat2vec MIT License was confirmed by first author Vahe Tshitoyan via email in October 2026.
+Earlier statements in this document that the weights' terms were unverified, and that `artifacts/` must stay
+git-ignored, are superseded: the four derived `artifacts/` files are now committed and the hosted app runs the full
+version. The ~880 MB raw model files remain excluded. `public_artifacts/` is kept as a fallback.

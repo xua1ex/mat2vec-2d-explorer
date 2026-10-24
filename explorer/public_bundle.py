@@ -5,7 +5,7 @@
 The bundle holds precomputed, limited-scope outputs derived from the Mat2vec embeddings: candidate metadata, PCA
 coordinates, both scores for the 15 curated targets, and each candidate's top-10 context words with their
 similarity to every target. It does not contain the 200-d vectors (vocab_in, cand_in, cand_out), which stay in the
-git-ignored artifacts/. The licensing of the Mat2vec weights, and of outputs derived from them, is unresolved.
+full artifacts/. It is a fallback for when artifacts/ is unavailable; like the weights, it is MIT-licensed.
 """
 import json
 from pathlib import Path
@@ -20,11 +20,11 @@ FLOAT = "%.9g"  # 9 significant digits round-trip float32 exactly, so rankings m
 MAT2VEC = ("Tshitoyan, V. et al. Unsupervised word embeddings capture latent knowledge from materials science "
            "literature. Nature 571, 95-98 (2019). doi:10.1038/s41586-019-1335-8; "
            "https://github.com/materialsintelligence/mat2vec")
-LICENCE_NOTE = ("Derived from the pretrained Mat2vec embeddings, whose redistribution terms are unresolved; "
-                "this bundle's publication status depends on that answer.")
+LICENCE_NOTE = ("Derived from the pretrained Mat2vec embeddings, distributed under the mat2vec MIT License "
+                "(Copyright (c) 2019 Authors of Tshitoyan et al. Nature (2019)); redistribution of the weights was confirmed by first author Vahe Tshitoyan via email in October 2026.")
 README = f"""# public_artifacts: results-only bundle
 
-Precomputed, limited-scope model-derived outputs for the hosted version of mat2vec-2d-explorer.
+Precomputed, limited-scope model-derived outputs: the fallback used by mat2vec-2d-explorer when `artifacts/` is unavailable.
 This is **not the pretrained embedding vectors** and contains no model files.
 
 | File | Contents |
@@ -38,8 +38,9 @@ This is **not the pretrained embedding vectors** and contains no model files.
 **Derived from Mat2vec.** All scores, context words and PCA coordinates were computed with the pretrained Mat2vec
 embeddings: {MAT2VEC}. The embeddings were used unchanged and are not included here.
 
-**Licensing.** The redistribution terms of the Mat2vec model weights are unresolved, so the licensing status of
-outputs derived from them is also unresolved. This project's MIT License does not cover the weights.
+**Licensing.** The Mat2vec embeddings, and these outputs derived from them, are distributed under the mat2vec
+MIT License (Copyright (c) 2019 Authors of Tshitoyan et al. Nature (2019)). Redistribution of the pretrained weights under the MIT License was
+confirmed by first author Vahe Tshitoyan via email in October 2026.
 
 **MC2D.** Formulas and band gaps come from the Materials Cloud MC2D database (CC BY 4.0;
 Mounet et al., Nat. Nanotechnol. 13, 246 (2018), doi:10.1038/s41565-017-0035-5), filtered and merged as described

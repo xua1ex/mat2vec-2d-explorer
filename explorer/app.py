@@ -21,13 +21,12 @@ ARTIFACTS = os.environ.get("EXPLORER_ARTIFACTS", str(ROOT / "artifacts"))
 # Hosted version: results-only bundle from `python -m explorer.public_bundle` (no embedding vectors).
 PUBLIC = os.environ.get("EXPLORER_PUBLIC", str(ROOT / "public_artifacts"))
 PUBLIC_FILES = ["candidates.csv", "coords.csv", "scores.csv", "context.csv", "meta.json"]
-HOSTED_ABOUT = ("\n- **This hosted version** runs on a results-only bundle (`public_artifacts/`): precomputed, "
+HOSTED_ABOUT = ("\n- **This results-only version** runs on the fallback bundle (`public_artifacts/`): precomputed, "
                 "limited-scope outputs derived from the Mat2vec embeddings (scores for the 15 predefined targets, PCA "
                 "coordinates, candidate metadata and top-10 context words). It is not the embedding vectors, so "
-                "free-text queries need the full local version. The licensing of the Mat2vec weights, and of outputs "
-                "derived from them, is unresolved.")
-HOSTED_NOTE = ("Free-text queries are unavailable in the hosted version: they need the pretrained Mat2vec embeddings, "
-               "which are not published. Run the full version locally to query any word.")
+                "free-text queries need the full version with `artifacts/`.")
+HOSTED_NOTE = ("Free-text queries are unavailable in the results-only version: they need the embedding vectors in "
+               "`artifacts/`. Run the full version to query any word.")
 CAVEAT = "Literature association before 2018, not feasibility."
 DEFAULT_TARGET = "chemical_vapor_deposition"
 MODES = {"out_in": "Co-occurrence score (output·input)", "in_in": "Similarity score (input·input)"}
@@ -435,8 +434,9 @@ model, associate known 2D semiconductors with properties and thin-film depositio
 ### Licences and provenance
 - This project's code: MIT. `explorer/formula.py` is adapted from mat2vec (MIT, © 2019 Authors of Tshitoyan
   *et al.*). MC2D data: CC BY 4.0. Full notices: `THIRD_PARTY_NOTICES.md`.
-- The pretrained embeddings are **not** redistributed: their redistribution terms are unverified, so the
-  `artifacts/` built from them stay on your machine. {built}{HOSTED_ABOUT if hosted else ""}
+- The pretrained Mat2vec embeddings, and the `artifacts/` derived from them, are distributed under the mat2vec
+  MIT License (Copyright (c) 2019 Authors of Tshitoyan et al. Nature (2019)); redistribution of the pretrained weights under that licence was confirmed by first author Vahe Tshitoyan via email in October 2026.
+  The original ~880 MB model files are not included. {built}{HOSTED_ABOUT if hosted else ""}
 """)
 
 

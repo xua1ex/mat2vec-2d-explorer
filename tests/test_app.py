@@ -232,7 +232,7 @@ def test_limited_mode_about_page(monkeypatch, tmp_path):
     at = limited(monkeypatch, tmp_path, page="About")
     assert not at.exception and at.radio(key="page").value == "About"
     body = text(at)
-    for phrase in ("Mat2vec", "10.1038/s41586-019-1335-8", "MC2D", "CC BY 4.0", "**not** redistributed"):
+    for phrase in ("Mat2vec", "10.1038/s41586-019-1335-8", "MC2D", "CC BY 4.0", "MIT License", "Vahe Tshitoyan"):
         assert phrase in body, phrase
 
 
@@ -269,7 +269,7 @@ def test_hosted_explore_offers_all_15_targets_without_free_text(monkeypatch, tmp
     assert at.radio(key="page").options == ["Explore", "Evaluation", "Literature", "About"]
     assert len(at.selectbox(key="target").options) == 15 and at.selectbox(key="target").value == "chemical_vapor_deposition"
     assert not at.text_input                                   # no free-text box that could not work
-    assert "Free-text queries are unavailable in the hosted version" in text(at)
+    assert "Free-text queries are unavailable in the results-only version" in text(at)
     assert len(at.dataframe) >= 3 and len(at.dataframe[0].value) == len(at.dataframe[1].value)
     at.selectbox(key="target").set_value("ALD").run()
     assert not at.exception and "Target: ALD" in text(at)
@@ -291,7 +291,7 @@ def test_hosted_evaluation_literature_and_about(monkeypatch, tmp_path):
     at.selectbox(key="lit_method").set_value("Molecular beam epitaxy (MBE)").run()
     assert not at.exception and len(at.dataframe[0].value) == 18
     at.radio(key="page").set_value("About").run()
-    assert not at.exception and "results-only bundle" in text(at)
+    assert not at.exception and "results-only version" in text(at)
 
 
 @pytest.mark.artifacts

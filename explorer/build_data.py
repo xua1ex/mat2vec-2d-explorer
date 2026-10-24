@@ -2,8 +2,8 @@
 
     python -m explorer.build_data [--refresh]
 
-Reads the 800 MB pretrained model once (MAT2VEC_MODEL_DIR) and writes artifacts/ (git-ignored:
-it contains part of the pretrained weights, whose redistribution terms are unverified).
+Reads the ~880 MB pretrained model once (MAT2VEC_MODEL_DIR) and writes artifacts/. Only the four artifact files are
+committed (MIT License; redistribution of the pretrained weights confirmed by the first author); the raw model is not.
 """
 import argparse
 import json
@@ -170,8 +170,8 @@ def main():
             f"Pretrained Mat2vec model not found in {MODEL_DIR} (missing: {', '.join(missing)}).\n"
             f"Download the three files from the original authors' storage:\n"
             + "".join(f"  {MODEL_URL}{f}\n" for f in MODEL_FILES)
-            + "then set MAT2VEC_MODEL_DIR to their folder. They are third-party files by Tshitoyan et al.; "
-              "this project's MIT license does not cover them.")
+            + "then set MAT2VEC_MODEL_DIR to their folder. They are by Tshitoyan et al. and distributed under the "
+              "mat2vec MIT License. You only need them to rebuild artifacts/, which the repository already includes.")
     t0 = time.time()
 
     records = fetch_mc2d(args.refresh)

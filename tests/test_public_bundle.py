@@ -61,10 +61,10 @@ def test_bundle_is_up_to_date_and_matches_full_mode(tmp_path):
 def test_bundle_is_attributed_to_mat2vec_with_licensing_note():
     readme = (BUNDLE / "README.md").read_text()
     for phrase in ("Mat2vec", "Tshitoyan", "10.1038/s41586-019-1335-8", "github.com/materialsintelligence/mat2vec",
-                   "MC2D", "CC BY 4.0", "unresolved", "not the pretrained embedding vectors"):
+                   "MC2D", "CC BY 4.0", "MIT License", "Vahe Tshitoyan", "not the pretrained embedding vectors"):
         assert phrase in readme, phrase
     bundle = json.loads((BUNDLE / "meta.json").read_text())["bundle"]
-    assert "10.1038/s41586-019-1335-8" in bundle["derived_from"] and "unresolved" in bundle["licence_note"]
+    assert "10.1038/s41586-019-1335-8" in bundle["derived_from"] and "MIT License" in bundle["licence_note"]
 
 
 def test_bundle_has_no_secrets_paths_or_personal_data():

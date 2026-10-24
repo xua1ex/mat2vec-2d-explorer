@@ -14,7 +14,7 @@ A verified literature set of 92 material–method pairs supports this as an expl
 - **Streamlit** and **Plotly**: interactive dashboard with 2D/3D charts.
 - **gensim** loads the pretrained Mat2vec Word2Vec model (build step only); **pymatgen** handles formula normalization.
 - **Data APIs**: MC2D via OPTIMADE; OpenAlex and Crossref for literature curation.
-- **Testing**: pytest and Streamlit AppTest (69 tests).
+- **Testing**: pytest and Streamlit AppTest (72 tests).
 
 ## Relation to Mat2vec
 
@@ -48,7 +48,7 @@ More screenshots: [3D embedding map](docs/screenshots/explore3d.png), [About pag
     - a growth-route breakdown;
     - DOI-linked references.
 - **About:** sources, licences and scientific limitations.
-- **Hosted version:** without the model, the app runs on a results-only bundle. All features work for the 15 predefined targets; only free-text queries need the full local version. With neither the model nor the bundle, limited mode keeps the About and Literature pages.
+- **Runs out of the box:** the repository includes the precomputed `artifacts/` (44 MB), so the hosted app and a fresh clone have every feature, including free-text queries, without downloading the ~880 MB model. Fallbacks: a results-only bundle (15 predefined targets) if `artifacts/` is missing, then limited mode (About and Literature).
 - Shareable links: `?page=Evaluation`, `?view=3D`.
 
 ## Results
@@ -111,26 +111,25 @@ How to read it:
 ```bash
 conda create -n mat2vec-explorer python=3.11 -y
 conda activate mat2vec-explorer
-pip install -r requirements.txt          # the app (enough for limited mode)
-pip install -r requirements-build.txt    # build step and tests (needed for full mode)
+pip install -r requirements.txt          # the app
+pip install -r requirements-build.txt    # tests, and rebuilding artifacts/ from the model
 ```
 
-### 2a. Hosted version (results-only bundle): no model needed
+### 2. Run the app (full version, no model download)
 
 ```bash
 streamlit run explorer/app.py            # open http://localhost:8501
 ```
 
-A fresh clone runs on `public_artifacts/`, a 1.7 MB results-only bundle of plain CSV files:
-- **Works:** Explore (rankings, side-by-side comparison, 2D/3D map, context words) for the **15 predefined targets**, the full Evaluation page, the Literature page and About.
-- **Unavailable:** free-text queries for arbitrary words. These need the embedding vectors, which are not published.
-- **Contents:** precomputed, limited-scope outputs derived from Mat2vec: scores against the 15 predefined targets, PCA coordinates, candidate metadata and top-10 context words, generated from the local artifacts with `python -m explorer.public_bundle`. It is **not the pretrained embedding vectors** and contains no model files (a test checks this). It reveals each material's relation to only 15 target words, a small slice of the 200-dimensional embedding space. See [`public_artifacts/README.md`](public_artifacts/README.md) for attribution.
+The repository includes `artifacts/` (four files, 44 MB), so every feature works straight away: rankings for any of the 15 predefined targets **or any word in the 50,482-token table** (free-text queries), the side-by-side comparison, the 2D/3D map, context words, Evaluation and About.
 
-If `public_artifacts/` is also missing, the app falls back to **limited mode**: the About page and the literature dataset, with a notice naming the features that need the model.
+Fallbacks, used automatically:
+1. **Results-only version:** if `artifacts/` is missing, the app uses `public_artifacts/`, a 1.7 MB bundle of plain CSV files. It holds precomputed, limited-scope outputs (scores for the 15 predefined targets, PCA coordinates, candidate metadata, top-10 context words), not the embedding vectors, so free-text queries are unavailable. It also adds a Literature page.
+2. **Limited mode:** if both are missing, only the About page and the literature dataset are shown, with a notice naming the missing features.
 
 ![Limited mode](docs/screenshots/limited.png)
 
-### 2b. Full local version: needs the pretrained Mat2vec model (adds free-text queries)
+### 3. Optional: rebuild `artifacts/` from the pretrained model
 
 1. Download the three model files (~880 MB) from the original authors' storage. These are the same files the original mat2vec `setup.py` downloads:
    - https://storage.googleapis.com/mat2vec/pretrained_embeddings
@@ -139,12 +138,13 @@ If `public_artifacts/` is also missing, the app falls back to **limited mode**: 
 
    A [mat2vec](https://github.com/materialsintelligence/mat2vec) checkout next to this repo works with no configuration (default path `../mat2vec/mat2vec/training/models`). Otherwise set `MAT2VEC_MODEL_DIR` to the files' folder.
 
-   > **Licensing caveat:** these files are third-party work by Tshitoyan *et al.* This project's MIT License does not cover them, and no licence for them has been confirmed. Download them yourself, and do not redistribute them or anything built from them (`artifacts/`).
+   > **Licence:** these files are by Tshitoyan *et al.* and are distributed under the mat2vec MIT License (Copyright (c) 2019 Authors of Tshitoyan et al. Nature (2019)); redistribution of the pretrained weights was confirmed by first author Vahe Tshitoyan via email in October 2026. You only need them to rebuild `artifacts/`.
 
 2. Build the artifacts and run the app:
 
    ```bash
-   python -m explorer.build_data          # ~10 s; downloads MC2D once, writes artifacts/ (local, ~42 MB)
+   python -m explorer.build_data          # ~10 s; downloads MC2D once, rewrites artifacts/ (~44 MB)
+   python -m explorer.public_bundle       # refresh the results-only fallback
    streamlit run explorer/app.py
    ```
 
@@ -157,19 +157,19 @@ If `public_artifacts/` is also missing, the app falls back to **limited mode**: 
 ### Tests
 
 ```bash
-pytest                                   # 69 tests; without artifacts/, the 20 full-mode tests are skipped with a reason
+pytest                                   # 72 tests; artifacts/ ships with the repo, so all of them run (they skip with a reason if it is removed)
 ```
 
 ### Troubleshooting
 
 | Message | Fix |
 |---|---|
-| "Limited mode: no model artifacts found" | `artifacts/` is missing. Follow step 2b. |
+| "Limited mode: no model artifacts found" | Both `artifacts/` and `public_artifacts/` are missing. Restore them from the repository, or follow step 3. |
 | "Pretrained Mat2vec model not found in …" | Download the three files and set `MAT2VEC_MODEL_DIR`. |
 | "The build step needs gensim and pymatgen" | `pip install -r requirements-build.txt` |
 | `ModuleNotFoundError: streamlit` / `plotly` | `pip install -r requirements.txt` |
 
-## Deploying the hosted version (Streamlit Community Cloud)
+## Deploying (Streamlit Community Cloud)
 
 Choose these in the deploy screen; the Python version and entrypoint are not read from the repository:
 - **Repository / branch:** `xua1ex/mat2vec-2d-explorer`, `main`
@@ -177,7 +177,7 @@ Choose these in the deploy screen; the Python version and entrypoint are not rea
 - **Advanced settings → Python version: Python 3.11** (the platform default is 3.12; the app is tested on 3.11)
 - **Dependencies:** the root `requirements.txt` (the six runtime packages) is the only dependency file Community Cloud finds. `requirements-build.txt` is not installed, so neither gensim nor the model is needed on the server.
 
-With no `artifacts/` on the server, the app runs on `public_artifacts/`.
+The deployed app reads the committed `artifacts/` and runs the full version, free-text queries included. The ~880 MB model is never needed on the server.
 
 ## Architecture
 
@@ -188,13 +188,14 @@ explorer/
   ranking.py      numpy/pandas only: both scores, ranks, context words, popularity bias, positive-only metrics
   public_bundle.py artifacts/ -> public_artifacts/: results-only bundle for the hosted version (no vectors)
   app.py          Streamlit UI (Explore / Evaluation / About, + Literature when hosted); no gensim at runtime
-public_artifacts/ precomputed scores, PCA coordinates, candidate metadata, context words (CSV, ~1.7 MB)
+artifacts/        vectors.npz (embedding subset, float16), candidates, PCA coords, meta (44 MB; full version)
+public_artifacts/ precomputed scores, PCA coordinates, candidate metadata, context words (CSV, ~1.7 MB; fallback)
 data/
   known_methods.csv   92 verified material–method pairs (DOI, growth type, phase, evidence, notes)
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
                       (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
-tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (69 tests)
+tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (72 tests)
 docs/             design spec, implementation plan, screenshots
 ```
 
@@ -206,20 +207,18 @@ How the pieces fit together:
 ## Data and provenance
 
 - **Mat2vec**: Tshitoyan, V. *et al.* *Nature* 571, 95–98 (2019), doi:10.1038/s41586-019-1335-8.
-  - The pretrained embeddings are used unchanged and are **not redistributed**: their redistribution terms are unverified. `artifacts/` is git-ignored and must be rebuilt locally.
+  - The pretrained embeddings are used unchanged. The four derived files in `artifacts/` are distributed under the mat2vec MIT License; redistribution of the pretrained weights was confirmed by first author Vahe Tshitoyan via email in October 2026. The original ~880 MB model files are not included.
 - **MC2D**: Mounet, N. *et al.* *Nat. Nanotechnol.* 13, 246 (2018), doi:10.1038/s41565-017-0035-5; Campi, D. *et al.* *ACS Nano* 17, 11268 (2023). Formulas and band gaps come from the public OPTIMADE API, licence CC BY 4.0. The raw response is cached in `data/mc2d_raw.json` (git-ignored).
 - **Literature set**: candidates came from OpenAlex. Crossref was used for sputtering and PLD after the OpenAlex free quota ran out. Each row was then reviewed by hand against its title or abstract. Rejected rows included papers where the material is only a substrate ("ALD of HfO2 on MoS2"), a precursor or an MBE source, and subscript artifacts.
 - **Licences**:
   - This project's source code is released under the MIT License ([LICENSE](LICENSE)). `explorer/formula.py` is adapted
     from mat2vec (MIT). MC2D data is CC BY 4.0. Full notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-  - **The MIT License does not cover the pretrained Mat2vec embedding weights.** They are third-party files by
-    Tshitoyan *et al.*, downloaded separately from the authors' storage, and no licence for them has been confirmed.
-    They and every vector artifact derived from them (`artifacts/`, `*.npy`, `*.npz`) are git-ignored and are not
-    distributed with this repository. Check the terms with the Mat2vec authors before redistributing or hosting them.
-  - `public_artifacts/` contains **precomputed, limited-scope outputs derived from Mat2vec** (similarity scores, PCA
-    coordinates and context-word results computed with the embeddings), not the embedding vectors or weights. Because
-    the licensing of the weights is unresolved, so is the licensing of these derived outputs; this is being clarified
-    with the original authors before the bundle is published.
+  - **The pretrained Mat2vec embeddings are distributed under the mat2vec MIT License** (Copyright (c) 2019 Authors of Tshitoyan et al. Nature (2019)).
+    Redistribution of the pretrained weights under the MIT License was confirmed by first author Vahe Tshitoyan via email in October 2026.
+    This repository ships the four derived files in `artifacts/` (44 MB, including `vectors.npz`) under that licence;
+    the raw model files (`pretrained_embeddings*`, `*.npy`, ~880 MB) are not included and stay git-ignored.
+  - `public_artifacts/` contains **precomputed, limited-scope outputs derived from Mat2vec**, kept as a fallback for
+    when `artifacts/` is unavailable; it is distributed under the same licence.
 
 ## How to cite
 

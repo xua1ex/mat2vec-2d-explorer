@@ -9,6 +9,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 SCRIPT = textwrap.dedent('''
@@ -42,7 +44,8 @@ SCRIPT = textwrap.dedent('''
             return None
 
     sys.meta_path.insert(0, OnlyRuntimeDeps())
-    os.environ["EXPLORER_ARTIFACTS"] = os.path.join(os.getcwd(), "no-artifacts-here")   # hosted: bundle only
+    if sys.argv[1] == "bundle":
+        os.environ["EXPLORER_ARTIFACTS"] = os.path.join(os.getcwd(), "no-artifacts-here")   # results bundle only
     from streamlit.testing.v1 import AppTest
 
     failures = []
@@ -52,11 +55,28 @@ SCRIPT = textwrap.dedent('''
             at.query_params[k] = v
         at.run()
         failures += [f"{query}: {e.value}" for e in at.exception]
+    if sys.argv[1] == "full":   # hosted full version: arbitrary free-text queries
+        expected = {"photodetector": "photodetector", "WS2": "S2W", "Chemical vapor deposition": "chemical vapor deposition"}
+        for word, target in expected.items():
+            at = AppTest.from_file("explorer/app.py", default_timeout=60).run()
+            at.text_input(key="free").input(word).run()
+            failures += [f"free text {word!r}: {e.value}" for e in at.exception]
+            if not any(h.value == f"Target: {target}" for h in at.subheader):
+                failures.append(f"free text {word!r} did not select target {target!r}")
     print("\\n".join(failures) or "ok")
     sys.exit(1 if failures else 0)
 ''')
 
 
-def test_hosted_pages_run_with_only_requirements_txt():
-    result = subprocess.run([sys.executable, "-c", SCRIPT], cwd=ROOT, capture_output=True, text=True, timeout=300)
+def run_guarded(mode):
+    result = subprocess.run([sys.executable, "-c", SCRIPT, mode], cwd=ROOT, capture_output=True, text=True, timeout=600)
     assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
+
+
+def test_hosted_pages_run_with_only_requirements_txt():
+    run_guarded("bundle")
+
+
+@pytest.mark.artifacts
+def test_hosted_full_version_with_free_text_runs_with_only_requirements_txt():
+    run_guarded("full")
