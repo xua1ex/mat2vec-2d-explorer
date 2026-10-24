@@ -106,7 +106,7 @@ You need the pretrained Mat2vec model: three files, about 840 MB. If you have a 
 ```bash
 python -m explorer.build_data          # ~10 s; downloads MC2D once, writes artifacts/ (local, ~42 MB)
 streamlit run explorer/app.py          # open http://localhost:8501
-pytest                                 # 45 tests (app tests need artifacts/)
+pytest                                 # 49 tests (app tests need artifacts/)
 ```
 
 `build_data` checks itself:
@@ -128,7 +128,7 @@ data/
 tools/
   find_literature.py  OpenAlex/Crossref candidate search used to build known_methods.csv (provenance)
                       (set LITERATURE_MAILTO=<your email> first: OpenAlex/Crossref polite pool)
-tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (45 tests)
+tests/            formula, ranking, build, literature-set integrity, Streamlit AppTest (49 tests)
 docs/             design spec, implementation plan, screenshots
 ```
 
@@ -143,4 +143,10 @@ How the pieces fit together:
   - The pretrained embeddings are used unchanged and are **not redistributed**: their redistribution terms are unverified. `artifacts/` is git-ignored and must be rebuilt locally.
 - **MC2D**: Mounet, N. *et al.* *Nat. Nanotechnol.* 13, 246 (2018), doi:10.1038/s41565-017-0035-5; Campi, D. *et al.* *ACS Nano* 17, 11268 (2023). Formulas and band gaps come from the public OPTIMADE API, licence CC BY 4.0. The raw response is cached in `data/mc2d_raw.json` (git-ignored).
 - **Literature set**: candidates came from OpenAlex. Crossref was used for sputtering and PLD after the OpenAlex free quota ran out. Each row was then reviewed by hand against its title or abstract. Rejected rows included papers where the material is only a substrate ("ALD of HfO2 on MoS2"), a precursor or an MBE source, and subscript artifacts.
-- **Licences**: this project is MIT. `explorer/formula.py` is adapted from mat2vec (MIT). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- **Licences**:
+  - This project's source code is released under the MIT License ([LICENSE](LICENSE)). `explorer/formula.py` is adapted
+    from mat2vec (MIT). MC2D data is CC BY 4.0. Full notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+  - **The MIT License does not cover the pretrained Mat2vec embedding weights.** They are third-party files by
+    Tshitoyan *et al.*, downloaded separately from the authors' storage, and no licence for them has been confirmed.
+    They and every vector artifact derived from them (`artifacts/`, `*.npy`, `*.npz`) are git-ignored and are not
+    distributed with this repository. Check the terms with the Mat2vec authors before redistributing or hosting them.

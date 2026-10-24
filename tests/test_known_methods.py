@@ -29,3 +29,9 @@ def test_polymorph_mismatches_are_flagged_explicitly():
 
 def test_training_window_overlap_count():
     assert int((K.year.astype(int) <= 2018).sum()) == 63
+
+
+def test_evidence_is_the_title_or_a_marked_paraphrase():
+    other = K[K.evidence != K.title]
+    assert len(other) == 5
+    assert other.evidence.str.startswith("Abstract (paraphrased): ").all()

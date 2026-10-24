@@ -2,6 +2,10 @@
 .DS_Store
 data/mc2d_raw.json
 artifacts/
+# pretrained Mat2vec weights and anything derived from them: redistribution terms unverified
+*.npy
+*.npz
+pretrained_embeddings*
 __pycache__/
 .pytest_cache/
 data/literature_candidates_*.csv
